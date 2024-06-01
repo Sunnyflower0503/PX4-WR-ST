@@ -302,6 +302,9 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 	 * Accept HIL GPS messages if use_hil_gps flag is true.
 	 * This allows to provide fake gps measurements to the system.
 	 */
+
+//        PX4_INFO("hil_enabled = %d, msgid = %d", _mavlink->get_hil_enabled(), msg->msgid);
+
 	if (_mavlink->get_hil_enabled()) {
 		switch (msg->msgid) {
 		case MAVLINK_MSG_ID_HIL_SENSOR:
@@ -2533,6 +2536,9 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		airspeed.air_temperature_celsius = 15.f;
 		airspeed.timestamp = hrt_absolute_time();
 		_airspeed_pub.publish(airspeed);
+
+//         PX4_INFO("HIL TAS = %.2f", (double)airspeed.true_airspeed_m_s);
+
 	}
 
 	/* attitude */
@@ -2645,7 +2651,7 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		hil_battery_status.discharged_mah = -1.0f;
 		hil_battery_status.timestamp = hrt_absolute_time();
 		_battery_pub.publish(hil_battery_status);
-	}
+    }
 }
 
 #if !defined(CONSTRAINED_FLASH)

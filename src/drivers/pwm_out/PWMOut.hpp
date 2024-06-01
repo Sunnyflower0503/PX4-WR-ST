@@ -93,7 +93,7 @@ enum PortMode {
 // TODO: keep in sync with drivers/camera_capture
 #define PX4FMU_DEVICE_PATH	"/dev/px4fmu"
 
-static constexpr int PWM_OUT_MAX_INSTANCES{(DIRECT_PWM_OUTPUT_CHANNELS > 8) ? 2 : 1};
+static constexpr int PWM_OUT_MAX_INSTANCES{(DIRECT_PWM_OUTPUT_CHANNELS > 8) ? 2 : 1};   //  对于CUAV X7, DIRECT_PWM_OUTPUT_CHANNELS = 14
 extern pthread_mutex_t pwm_out_module_mutex;
 
 class PWMOut : public cdev::CDev, public OutputModuleInterface
@@ -232,5 +232,7 @@ private:
 
 	PWMOut(const PWMOut &) = delete;
 	PWMOut operator=(const PWMOut &) = delete;
+
+    uint16_t _count{0};
 
 };

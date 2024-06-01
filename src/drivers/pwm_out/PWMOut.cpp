@@ -566,6 +566,8 @@ bool PWMOut::update_pwm_out_state(bool on)
 		// this is re-done once per instance, but harmless
 		up_pwm_servo_init(pwm_mask_new);
 
+//                PX4_INFO("update_pwm_out_state: on = %d, _pwm_mask = %d, pwm_mask_new = %d", on, _pwm_mask, pwm_mask_new);
+
 		// Set rate is not affecting non-masked channels, so can be called
 		// individually
 		set_pwm_rate(get_alt_rate_channels(), get_default_rate(), get_alt_rate());
@@ -575,6 +577,9 @@ bool PWMOut::update_pwm_out_state(bool on)
 	}
 
 	up_pwm_servo_arm(on, _pwm_mask);
+
+        PX4_INFO("pwm arm: on = %d, _pwm_mask = %d, PWM_OUT_MAX_INSTANCES = %d", on, _pwm_mask, PWM_OUT_MAX_INSTANCES);
+
 	return _all_instances_ready.load() == PWM_OUT_MAX_INSTANCES;
 }
 
@@ -585,7 +590,7 @@ bool PWMOut::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 		return false;
 	}
 
-	/* output to the servos */
+        /* output to the servos */
 	if (_pwm_initialized) {
 		for (size_t i = 0; i < math::min(_num_outputs, num_outputs); i++) {
 			up_pwm_servo_set(_output_base + i, outputs[i]);
@@ -598,6 +603,14 @@ bool PWMOut::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 	if (num_control_groups_updated > 0) {
 		up_pwm_update(); // TODO: review for multi
 	}
+
+//        if( _count %100 == 0 )
+//        {
+//            PX4_INFO("pwm_set: _output_base = %d, outputs[0] = %d, _num_outputs = %d, num_outputs = %d",
+//                     _output_base, outputs[0], _num_outputs, num_outputs);
+//            PX4_INFO("outputs 0-3: %d %d %d %d", outputs[0], outputs[1],outputs[2],outputs[3]);
+//        }
+//        _count++;
 
 	return true;
 }
@@ -642,7 +655,7 @@ void PWMOut::Run()
 		_parameter_update_sub.copy(&pupdate);
 
 		// update parameters from storage
-		// update_params(); // do not update PWM params for now (was interfering with VTOL PWM settings)
+                 update_params(); // do not update PWM params for now (was interfering with VTOL PWM settings)
 	}
 
 	if (_current_update_rate == 0) {

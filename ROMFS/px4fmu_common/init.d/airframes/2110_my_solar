@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# @name MeiYingSolar
+#
+# @type Standard Plane
+# @class Plane
+#
+# @output MAIN1 throttle_left
+# @output MAIN2 throttle_right
+# @output MAIN3 elevator
+# @output MAIN4 aileron
+# @output MAIN5 rudder
+# @output MAIN6 throttle
+# @output MAIN7 airbraker
+# @output MAIN8 wheel
+#
+# @output AUX1 feed-through of RC AUX1 channel
+# @output AUX2 feed-through of RC AUX2 channel
+# @output AUX3 feed-through of RC AUX3 channel
+#
+#
+
+. ${R}etc/init.d/rc.fw_defaults
+
+
+	param set-default FW_AIRSPD_MIN 9.23
+	param set-default FW_AIRSPD_TRIM 11
+	param set-default FW_AIRSPD_MAX 20
+
+	param set-default FW_MAN_P_MAX 55
+	param set-default FW_MAN_R_MAX 55
+	param set-default FW_R_LIM 55
+
+	param set-default FW_WR_FF 0.0
+	param set-default FW_WR_I 0.2
+	param set-default FW_WR_IMAX 0.8
+	param set-default FW_WR_P 1
+	param set-default FW_W_RMAX 0
+
+	# set disarmed value for the ESC
+	param set-default PWM_DISARMED 1000
+
+
+set MIXER MYSolar
+
+set MIXER_AUX MYSolar
+
+# use PWM parameters for throttle channel
+set PWM_OUT 45

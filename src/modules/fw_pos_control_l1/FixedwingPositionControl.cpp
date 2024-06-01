@@ -113,7 +113,7 @@ FixedwingPositionControl::parameters_update()
 	_tecs.set_equivalent_airspeed_min(_param_fw_airspd_min.get());
 	_tecs.set_equivalent_airspeed_max(_param_fw_airspd_max.get());
 	_tecs.set_min_sink_rate(_param_fw_t_sink_min.get());
-	_tecs.set_throttle_damp(_param_fw_t_thr_damp.get());
+    _tecs.set_throttle_damp(_param_fw_t_thr_damp.get());
 	_tecs.set_integrator_gain_throttle(_param_fw_t_I_gain_thr.get());
 	_tecs.set_integrator_gain_pitch(_param_fw_t_I_gain_pit.get());
 	_tecs.set_throttle_slewrate(_param_fw_thr_slew_max.get());
@@ -127,6 +127,14 @@ FixedwingPositionControl::parameters_update()
 	_tecs.set_ste_rate_time_const(_param_ste_rate_time_const.get());
 	_tecs.set_speed_derivative_time_constant(_param_tas_rate_time_const.get());
 	_tecs.set_seb_rate_ff_gain(_param_seb_rate_ff.get());
+
+    // WR revised, 20220107
+    _tecs.set_tecs_method(_param_fw_t_tecs_method.get());
+    _tecs.set_ktp(_param_fw_t_ktp.get());
+    _tecs.set_kti(_param_fw_t_kti.get());
+    _tecs.set_kep(_param_fw_t_kep.get());
+    _tecs.set_kei(_param_fw_t_kei.get());
+
 
 
 	// Landing slope
@@ -211,7 +219,7 @@ FixedwingPositionControl::airspeed_poll()
 	bool airspeed_valid = _airspeed_valid;
 	airspeed_validated_s airspeed_validated;
 
-	if ((_param_fw_arsp_mode.get() == 0) && _airspeed_validated_sub.update(&airspeed_validated)) {
+    if ((_param_fw_arsp_mode.get() == 0) && _airspeed_validated_sub.update(&airspeed_validated)) {
 
 		_eas2tas = 1.0f; //this is the default value, taken in case of invalid airspeed
 
@@ -222,7 +230,7 @@ FixedwingPositionControl::airspeed_poll()
 			airspeed_valid = true;
 
 			_airspeed_last_valid = airspeed_validated.timestamp;
-			_airspeed = airspeed_validated.calibrated_airspeed_m_s;
+            _airspeed = airspeed_validated.calibrated_airspeed_m_s;
 
 			_eas2tas = constrain(airspeed_validated.true_airspeed_m_s / airspeed_validated.calibrated_airspeed_m_s, 0.9f, 2.0f);
 		}
@@ -1813,6 +1821,8 @@ FixedwingPositionControl::Run()
 
 		perf_end(_loop_perf);
 	}
+
+    _count++;
 }
 
 void
@@ -1950,6 +1960,13 @@ FixedwingPositionControl::tecs_update_pitch_throttle(const hrt_abstime &now, flo
 			}
 		}
 	}
+
+//    // WR revised, 20240525
+//    if( _count%200 == 0) {
+//        PX4_INFO("H_sp=%.2f, H=%.2f, V_sp=%.2f, V=%.2f",
+//                 (double)alt_sp, (double)_current_altitude,(double)airspeed_sp,(double)_airspeed );
+//    }
+
 
 	_tecs.update_pitch_throttle(_pitch - radians(_param_fw_psp_off.get()),
 				    _current_altitude, alt_sp,

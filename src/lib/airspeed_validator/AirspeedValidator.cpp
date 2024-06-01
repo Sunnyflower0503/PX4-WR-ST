@@ -48,6 +48,12 @@ AirspeedValidator::update_airspeed_validator(const airspeed_validator_update_dat
 
 	update_CAS_scale();
 	update_CAS_TAS(input_data.air_pressure_pa, input_data.air_temperature_celsius);
+
+    // 仿真时没有静压，TAS会=0，所以增加了这个判断
+    if( !PX4_ISFINITE(_TAS) ) {
+        _TAS = input_data.airspeed_true_raw;
+    }
+
 	update_wind_estimator(input_data.timestamp, input_data.airspeed_true_raw, input_data.lpos_valid, input_data.lpos_vx,
 			      input_data.lpos_vy,
 			      input_data.lpos_vz, input_data.lpos_evh, input_data.lpos_evv, input_data.att_q);
@@ -131,6 +137,15 @@ AirspeedValidator::update_CAS_TAS(float air_pressure_pa, float air_temperature_c
 {
 	_CAS = calc_CAS_from_IAS(_IAS, _CAS_scale);
 	_TAS = calc_TAS_from_CAS(_CAS, air_pressure_pa, air_temperature_celsius);
+
+//    if( !PX4_ISFINITE(_TAS)) {
+//        _TAS = input_data.
+//    }
+
+//    if( _count%100 ==0 ) {
+//        PX4_INFO("TAS: %.2f, %.2f, %.2f, %.2f", (double)_CAS, (double)air_pressure_pa, (double)air_temperature_celsius, (double)_TAS);
+//    }
+//    _count++;
 }
 
 void
@@ -232,3 +247,88 @@ AirspeedValidator::update_airspeed_valid_status(const uint64_t timestamp)
 		_airspeed_valid = true;
 	}
 }
+
+//// 算法来自《飞行仿真技术》(高亚奎), P78
+//// 只计算到H<32km
+//float VehicleAirData::get_temp_isa(float h)
+//{
+//    float T_a = 288.15f;
+//    float temp_k = T_a;
+
+//    if (h <= 11000.f) {
+//        temp_k = T_a - 0.0065f * h;
+//    }
+//    else if (h <= 20000.f) {
+//        temp_k = 216.65f;
+//    }
+//    else if (h <= 32000.f) {
+//        temp_k = 216.65f + 0.001f * (h-2000.f);
+//    }
+//    else {
+//        temp_k = 228.65f;
+//    }
+
+//    return temp_k;
+//}
+
+//// 只计算到H<32km
+//float VehicleAirData::get_press_isa(float h)
+//{
+//    float p_a = 101325.f;	// [pa, N/m^2]
+//    float T_a = 288.15f;
+
+//    float press_pa = p_a;
+
+//    if (h <= 11000.f) {
+//        press_pa = powf(get_temp_isa(h) / T_a, 5.25588f) * p_a;
+//    }
+//    else if (h <= 20000.f) {
+//        float press_11km = powf(get_temp_isa(11000.f) / T_a, 5.25588f) * p_a;
+//        press_pa = expf(-(h-11000.f)/6341.62f) * press_11km;
+//    }
+//    else if (h <= 32000.f) {
+//        float press_11km = powf(get_temp_isa(11000.f) / T_a, 5.25588f) * p_a;
+//        float press_20km = expf(-(20000.f - 11000.f) / 6341.62f) * press_11km;
+//        press_pa = powf(get_temp_isa(h) / 216.65f, -34.1632f) * press_20km;
+//    }
+//    else {
+//        h = 32000.f;
+//        float press_11km = powf(get_temp_isa(11000.f) / T_a, 5.25588f) * p_a;
+//        float press_20km = expf(-(20000.f - 11000.f) / 6341.62f) * press_11km;
+//        press_pa = powf(get_temp_isa(h) / 216.65f, -34.1632f) * press_20km;
+//    }
+
+//    return press_pa;
+//}
+
+//// 只计算到H<32km
+//float VehicleAirData::get_rho_isa(float h)
+//{
+//    float T_a = 288.15f;
+
+//    float rho_a = 1.225f;	// [km/m^3]
+//    float rho_kg1m3 = rho_a;
+
+
+//    if (h <= 11000.f) {
+//        rho_kg1m3 = powf(get_temp_isa(h) / T_a, 4.25588f) * rho_a;
+//    }
+//    else if (h <= 20000.f) {
+//        float rho_11km = powf(get_temp_isa(11000.f) / T_a, 4.25588f) * rho_a;
+//        rho_kg1m3 = expf(-(h - 11000.f) / 6341.62f) * rho_11km;
+//    }
+//    else if (h <= 32000.f) {
+//        float rho_11km = powf(get_temp_isa(11000.f) / T_a, 4.25588f) * rho_a;
+//        float rho_20km = expf(-(20000.f - 11000.f) / 6341.62f) * rho_11km;
+//        rho_kg1m3 = powf(get_temp_isa(h) / 216.65f, -35.1632f) * rho_20km;	// 是 -35.1632f 还是 -34.1632f？
+//    }
+//    else {
+//        h = 32000.f;
+//        float rho_11km = powf(get_temp_isa(11000.f) / T_a, 4.25588f) * rho_a;
+//        float rho_20km = expf(-(20000.f - 11000.f) / 6341.62f) * rho_11km;
+//        rho_kg1m3 = powf(get_temp_isa(h) / 216.65f, -35.1632f) * rho_20km;	// 是 -35.1632f 还是 -34.1632f？
+//    }
+
+//    return rho_kg1m3;
+//}
+

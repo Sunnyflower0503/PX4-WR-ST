@@ -235,6 +235,11 @@ float FixedwingAttitudeControl::get_airspeed_and_update_scaling()
 	// if no airspeed measurement is available out best guess is to use the trim airspeed
 	float airspeed = _param_fw_airspd_trim.get();
 
+//    if( _count%100 == 0 ) {
+//        PX4_INFO("_IAS = %.2f, CAS = %.2f, TAS = %.2f", (double)_airspeed_validated_sub.get().indicated_airspeed_m_s,
+//                 (double)_airspeed_validated_sub.get().calibrated_airspeed_m_s, (double)_airspeed_validated_sub.get().true_airspeed_m_s);
+//    }
+
 	if ((_param_fw_arsp_mode.get() == 0) && airspeed_valid) {
 		/* prevent numerical drama by requiring 0.5 m/s minimal speed */
 		airspeed = math::max(0.5f, _airspeed_validated_sub.get().calibrated_airspeed_m_s);
@@ -277,7 +282,7 @@ void FixedwingAttitudeControl::Run()
 	// only run controller if attitude changed
 	vehicle_attitude_s att;
 
-	if (_att_sub.update(&att)) {
+        if (_att_sub.update(&att)) {
 
 		// only update parameters if they changed
 		bool params_updated = _parameter_update_sub.updated();
@@ -298,6 +303,11 @@ void FixedwingAttitudeControl::Run()
 
 		/* get current rotation matrix and euler angles from control state quaternions */
 		matrix::Dcmf R = matrix::Quatf(att.q);
+
+//                if( _count%200 == 0 ) {
+//                    matrix::Eulerf euler(matrix::Quatf(att.q));
+//                    PX4_INFO("pitch = %.2f", (double)(euler.theta()*57.3f));
+//                }
 
 		vehicle_angular_velocity_s angular_velocity{};
 		_vehicle_rates_sub.copy(&angular_velocity);
@@ -387,7 +397,7 @@ void FixedwingAttitudeControl::Run()
 		/* decide if in stabilized or full manual control */
 		if (_vcontrol_mode.flag_control_rates_enabled) {
 
-			const float airspeed = get_airspeed_and_update_scaling();
+            const float airspeed = get_airspeed_and_update_scaling();
 
 			/* reset integrals where needed */
 			if (_att_sp.roll_reset_integral) {
@@ -642,7 +652,9 @@ void FixedwingAttitudeControl::Run()
 		    _vcontrol_mode.flag_control_manual_enabled) {
 			_actuators_0_pub.publish(_actuators);
 		}
-	}
+        }
+
+        _count++;
 
 	perf_end(_loop_perf);
 }

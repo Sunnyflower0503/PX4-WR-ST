@@ -271,7 +271,7 @@ void VehicleAirData::Run()
 			out.rho = out.baro_pressure_pa  / (CONSTANTS_AIR_GAS_CONST * (_air_temperature_celsius -
 							   CONSTANTS_ABSOLUTE_NULL_CELSIUS));
 
-			out.timestamp = hrt_absolute_time();
+            out.timestamp = hrt_absolute_time();
 			_vehicle_air_data_pub.publish(out);
 
 			_last_publication_timestamp = out.timestamp;

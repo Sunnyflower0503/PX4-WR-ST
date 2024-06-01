@@ -183,6 +183,7 @@ private:
 	void		update_ground_minus_wind_airspeed(); /**< update airspeed estimate based on groundspeed minus windspeed */
 	void 		select_airspeed_and_publish(); /**< select airspeed sensor (or groundspeed-windspeed) */
 
+    uint16_t _count = 0;
 };
 
 AirspeedModule::AirspeedModule():
@@ -381,6 +382,8 @@ AirspeedModule::Run()
 	if (should_exit()) {
 		exit_and_cleanup();
 	}
+
+    _count++;
 }
 
 void AirspeedModule::update_params()
@@ -606,6 +609,12 @@ void AirspeedModule::select_airspeed_and_publish()
 		airspeed_validated.airspeed_sensor_measurement_valid = true;
 		break;
 	}
+
+//        if( _count%100 == 0 ) {
+//            PX4_INFO("idx = %d, _IAS = %.2f, CAS = %.2f, TAS = %.2f", _valid_airspeed_index, (double)airspeed_validated.indicated_airspeed_m_s,
+//                     (double)airspeed_validated.calibrated_airspeed_m_s, (double)airspeed_validated.true_airspeed_m_s);
+//        }
+
 
 	_airspeed_validated_pub.publish(airspeed_validated);
 

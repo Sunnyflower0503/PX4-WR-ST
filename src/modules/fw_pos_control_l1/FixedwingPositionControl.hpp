@@ -399,6 +399,11 @@ private:
 		(ParamFloat<px4::params::FW_T_SEB_R_FF>) _param_seb_rate_ff,
 		(ParamFloat<px4::params::FW_T_CLMB_R_SP>) _param_climbrate_target,
 		(ParamFloat<px4::params::FW_T_SINK_R_SP>) _param_sinkrate_target,
+        (ParamFloat<px4::params::FW_T_TECS_METHOD>) _param_fw_t_tecs_method,    // WR revised, 20220107
+        (ParamFloat<px4::params::FW_T_KTP>) _param_fw_t_ktp,    // WR revised, 20220107
+        (ParamFloat<px4::params::FW_T_KTI>) _param_fw_t_kti,    // WR revised, 20220107
+        (ParamFloat<px4::params::FW_T_KEP>) _param_fw_t_kep,    // WR revised, 20220107
+        (ParamFloat<px4::params::FW_T_KEI>) _param_fw_t_kei,    // WR revised, 20220107
 
 		(ParamFloat<px4::params::FW_THR_ALT_SCL>) _param_fw_thr_alt_scl,
 		(ParamFloat<px4::params::FW_THR_CRUISE>) _param_fw_thr_cruise,
@@ -422,6 +427,8 @@ private:
 		(ParamFloat<px4::params::FW_TKO_PITCH_MIN>) _takeoff_pitch_min
 
 	)
+
+    uint16_t _count = 0;
 
 };
 

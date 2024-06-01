@@ -283,4 +283,6 @@ private:
 		(ParamInt<px4::params::MOT_ORDERING>) _param_mot_ordering
 
 	)
+
+//    uint16_t _count{0};
 };

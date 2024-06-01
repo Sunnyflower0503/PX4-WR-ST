@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# @name Tilt Feilong VTOL
+#
+# @type VTOL Tiltrotor
+# @class VTOL
+#
+# @maintainer
+#
+# @output MAIN1 motor 1
+# @output MAIN2 motor 2
+# @output MAIN3 motor 3
+# @output MAIN4 motor 4
+# @output MAIN5 tilt left
+# @output MAIN6 tilt right
+# @output MAIN7 null
+# @output MAIN8 null
+# @output AUX1 Aileron left
+# @output AUX2 Aileron right
+# @output AUX3 VTail left
+# @output AUX4 VTail right
+#
+# @board px4_fmu-v2 exclude
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.vtol_defaults
+
+
+param set-default PWM_AUX_DIS5 950
+param set-default PWM_MAIN_RATE 400
+
+param set-default FW_ARSPD_TRIM 20
+
+param set-default VT_ARSP_BLEND  12
+param set-default VT_ARSP_TRANS  18
+param set-default VT_B_DEC_MSS  1.5
+param set-default VT_B_TRANS_DUR  5
+param set-default VT_F_TRANS_DUR  7
+param set-default VT_F_TR_OL_TM   4
+param set-default VT_FW_DIFTHR_EN 0
+param set-default VT_FW_DIFTHR_SC 0.17
+param set-default VT_FW_MOT_OFFID 24
+param set-default VT_FW_PERM_STAB 1
+param set-default VT_MOT_ID 1234
+param set-default VT_IDLE_PWM_MC 1000
+param set-default VT_TILT_FW  1
+param set-default VT_TILT_MC  0
+param set-default VT_TILT_TRANS   0.4
+param set-default VT_TRANS_MIN_TM 4
+param set-default VT_TRANS_P2_DUR 1.5
+param set-default VT_ELEV_MC_LOCK 0
+param set-default VT_TYPE 1
+set MAV_TYPE 21
+
+set MIXER tilt_feilong_vtol
+set MIXER_AUX tilt_feilong_vtol
+

@@ -2181,9 +2181,11 @@ PX4IO::io_publish_raw_rc()
 int
 PX4IO::io_publish_pwm_outputs()
 {
-	if (_hitl_mode) {
-		return OK;
-	}
+    // WR revised, 20240526
+    // 注释掉这里可以在HIL模式下舵机也能动？
+        if (_hitl_mode) {
+                return OK;
+        }
 
 	/* get servo values from IO */
 	uint16_t ctl[_max_actuators];

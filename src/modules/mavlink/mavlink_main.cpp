@@ -639,18 +639,36 @@ Mavlink::set_hil_enabled(bool hil_enabled)
 {
 	int ret = OK;
 
-	/* enable HIL (only on links with sufficient bandwidth) */
-	if (hil_enabled && !_hil_enabled && _datarate > 5000) {
-		_hil_enabled = true;
-		ret = configure_stream("HIL_ACTUATOR_CONTROLS", 200.0f);
+//	/* enable HIL (only on links with sufficient bandwidth) */
+//	if (hil_enabled && !_hil_enabled && _datarate > 5000) {
+//		_hil_enabled = true;
+//		ret = configure_stream("HIL_ACTUATOR_CONTROLS", 200.0f);
 
-		if (_param_sys_hitl.get() == 2) {		// Simulation in Hardware enabled ?
-			configure_stream("HIL_STATE_QUATERNION", 25.0f); // ground truth to display the SIH
+//		if (_param_sys_hitl.get() == 2) {		// Simulation in Hardware enabled ?
+//			configure_stream("HIL_STATE_QUATERNION", 25.0f); // ground truth to display the SIH
 
-		} else {
-			configure_stream("HIL_STATE_QUATERNION", 0.0f);
-		}
-	}
+//		} else {
+//			configure_stream("HIL_STATE_QUATERNION", 0.0f);
+//		}
+//	}
+
+        /* enable HIL (only on links with sufficient bandwidth) */
+        if (hil_enabled && !_hil_enabled && _datarate > 5000) {
+                _hil_enabled = true;
+                ret = configure_stream("HIL_ACTUATOR_CONTROLS", 200.0f);
+
+                if (_param_sys_hitl.get() == 1) {		// Simulation in HIL mode
+                        configure_stream("HIL_STATE_QUATERNION", 200.0f);
+                        configure_stream("HIL_ACTUATOR_CONTROLS", 0.0f);
+                }
+                else if (_param_sys_hitl.get() == 2) {		// Simulation in Hardware enabled ?
+                        configure_stream("HIL_STATE_QUATERNION", 25.0f); // ground truth to display the SIH
+
+                } else {
+                        configure_stream("HIL_STATE_QUATERNION", 0.0f);
+                }
+        }
+
 
 	/* disable HIL */
 	if (!hil_enabled && _hil_enabled) {
@@ -1703,8 +1721,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 
 	/* fallthrough */
 	case MAVLINK_MODE_CUSTOM:
-		//stream nothing
-		break;
+        configure_stream_local("SERVO_OUTPUT_RAW_0", 100.0f);
+//        configure_stream_local("ACTUATOR_OUTPUT_STATUS", 100.0f);
+        break;
 
 	case MAVLINK_MODE_CONFIG: // USB
 		// Note: streams requiring low latency come first

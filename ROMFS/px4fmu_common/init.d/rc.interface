@@ -9,7 +9,8 @@
 #  Otherwise, the variable name goes to the end of the argument.
 #
 
-set OUTPUT_CMD pwm_out
+#set OUTPUT_CMD pwm_out
+set OUTPUT_CMD pwm_mix_out
 set MIXER_AUX_FILE none
 set MIXER_EXTRA_FILE none
 
@@ -68,16 +69,17 @@ fi
 if [ $OUTPUT_MODE != none ]
 then
 
-	if [ $OUTPUT_MODE = hil -o $OUTPUT_MODE = sim ]
-	then
-		if ! pwm_out_sim start -m $OUTPUT_MODE
-		then
-			tune_control play error
-		fi
-	fi
+#	if [ $OUTPUT_MODE = hil -o $OUTPUT_MODE = sim ]
+#	then
+#		if ! pwm_out_sim start -m $OUTPUT_MODE
+#		then
+#			tune_control play error
+#		fi
+#	fi
 
-	if [ $OUTPUT_MODE = $OUTPUT_CMD ]
-	then
+        if [ $OUTPUT_MODE = $OUTPUT_CMD ]
+#        if [ $OUTPUT_MODE = $OUTPUT_CMD -o $OUTPUT_MODE = hil -o $OUTPUT_MODE = sim]
+        then
 		if ! $OUTPUT_CMD mode_$FMU_MODE
 		then
 			echo "$OUTPUT_CMD start failed"

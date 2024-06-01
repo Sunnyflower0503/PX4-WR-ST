@@ -1,0 +1,71 @@
+
+Aileron/rudder/elevator/throttle mixer for PX4FMU
+==================================================
+
+This file defines mixers suitable for controlling a fixed wing aircraft with
+aileron, rudder, elevator and throttle controls using PX4FMU. The configuration
+assumes the aileron servo(s) are connected to PX4FMU servo output 0, the
+elevator to output 1, the rudder to output 2 and the throttle to output 3.
+
+Inputs to the mixer come from channel group 0 (vehicle attitude), channels 0
+(roll), 1 (pitch), 2 (yaw) and 3 (thrust).
+
+CH1: front left motor
+-------------
+M: 4
+S: 0 3      0  20000 -10000 -10000  10000
+S: 0 2  10000  10000      0 -10000  10000
+S: 0 1   7071   7071      0 -10000  10000
+S: 0 0  -7071  -7071      0 -10000  10000
+
+
+
+CH2: back right motor
+-------------
+M: 4
+S: 0 3      0  20000 -10000 -10000  10000
+S: 0 2  10000  10000      0 -10000  10000
+S: 0 1  -7071  -7071      0 -10000  10000
+S: 0 0   7071   7071      0 -10000  10000
+
+
+
+
+CH3: front right motor
+-------------
+M: 4
+S: 0 3      0  20000 -10000 -10000  10000
+S: 0 2 -10000 -10000      0 -10000  10000
+S: 0 1   7071   7071      0 -10000  10000
+S: 0 0   7071   7071      0 -10000  10000
+
+
+
+CH4: back left motor
+-------------
+M: 4
+S: 0 3      0  20000 -10000 -10000  10000
+S: 0 2 -10000 -10000      0 -10000  10000
+S: 0 1  -7071  -7071      0 -10000  10000
+S: 0 0  -7071  -7071      0 -10000  10000
+
+
+
+CH5: middle left motor
+-------------
+M: 1
+S: 0 3      0  20000 -10000 -10000  10000
+
+CH6: middle right motor
+-------------
+M: 1
+S: 0 3      0  20000 -10000 -10000  10000
+
+CH7: empty
+-------------
+Z:
+
+CH8: empty
+-------------
+Z:
+

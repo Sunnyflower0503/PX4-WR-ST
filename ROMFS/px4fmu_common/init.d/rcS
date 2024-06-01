@@ -536,6 +536,9 @@ else
 		fi
 	fi
 
+#        pwm_out stop
+        pwm_mix_out start
+
 #
 # End of autostart.
 #

@@ -825,3 +825,62 @@ PARAM_DEFINE_FLOAT(FW_T_CLMB_R_SP, 3.0f);
  * @group FW TECS
  */
 PARAM_DEFINE_FLOAT(FW_T_SINK_R_SP, 2.0f);
+
+/* WR revised, 20220107*/
+/**
+ * Select of the methord of tecs of default or custom.
+ *
+ *
+ * 0=default, 1 = custom traditional control methord.
+ *
+ * @min 0
+ * @max 1
+ * @value 0 default tecs method
+ * @value 1 custom traditional tecs method
+ * @group FW TECS
+ */
+PARAM_DEFINE_FLOAT(FW_T_TECS_METHOD, 0.0f);
+
+/**
+ * KTP of tecs.
+ *
+ * @min 0.0
+ * @max 10
+ * @decimal 2
+ * @increment 0.01
+ * @group FW TECS
+ */
+PARAM_DEFINE_FLOAT(FW_T_KTP, 0.4f);
+
+/**
+ * KTI of tecs.
+ *
+ * @min 0.0
+ * @max 10
+ * @decimal 2
+ * @increment 0.01
+ * @group FW TECS
+ */
+PARAM_DEFINE_FLOAT(FW_T_KTI, 0.8f);
+
+/**
+ * KEP of tecs.
+ *
+ * @min 0.0
+ * @max 10
+ * @decimal 2
+ * @increment 0.01
+ * @group FW TECS
+ */
+PARAM_DEFINE_FLOAT(FW_T_KEP, 0.4f);
+
+/**
+ * KEI of tecs.
+ *
+ * @min 0.0
+ * @max 10
+ * @decimal 2
+ * @increment 0.01
+ * @group FW TECS
+ */
+PARAM_DEFINE_FLOAT(FW_T_KEI, 0.8f);

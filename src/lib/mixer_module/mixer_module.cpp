@@ -377,7 +377,9 @@ bool MixingOutput::update()
 	/* get controls for required topics */
 	for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; i++) {
 		if (_groups_subscribed & (1 << i)) {
-			if (_control_subs[i].copy(&_controls[i])) {
+
+            // 在这里把[da, de, dr, dt]等actuator_constrols订阅到_controls[i]里，i代表_actuators_0_pub， _actuators_1_pub等
+            if (_control_subs[i].copy(&_controls[i])) {
 				n_updates++;
 			}
 
@@ -399,6 +401,13 @@ bool MixingOutput::update()
 	/* do mixing */
 	float outputs[MAX_ACTUATORS] {};
 	const unsigned mixed_num_outputs = _mixers->mix(outputs, _max_num_outputs);
+
+//    if(_count%400 == 0 ) {
+//        PX4_INFO("_controls: %.2f %.2f %.2f %.2f", (double)_controls[0].control[0], (double)_controls[0].control[1],(double)_controls[0].control[2],(double)_controls[0].control[3]);
+//        PX4_INFO("outputs: %.2f %.2f %.2f %.2f", (double)outputs[0], (double)outputs[1],(double)outputs[2],(double)outputs[3]);
+//        PX4_INFO("_current_output_value: %d %d %d %d", _current_output_value[0], _current_output_value[1],_current_output_value[2],_current_output_value[3]);
+//    }
+//    _count++;
 
 	/* the output limit call takes care of out of band errors, NaN and constrains */
 	output_limit_calc(_throttle_armed, armNoThrottle(), mixed_num_outputs, _reverse_output_mask,
@@ -429,6 +438,12 @@ bool MixingOutput::update()
 	if (_interface.updateOutputs(stop_motors, _current_output_value, mixed_num_outputs, n_updates)) {
 		actuator_outputs_s actuator_outputs{};
 		setAndPublishActuatorOutputs(mixed_num_outputs, actuator_outputs);
+
+//        if( _count %400 == 0 ) {
+//            PX4_INFO("num_outputs = %d, outputs[0] = %.2f", mixed_num_outputs, (double)actuator_outputs.output[0]);
+//        }
+//        _count++;
+
 
 		publishMixerStatus(actuator_outputs);
 		updateLatencyPerfCounter(actuator_outputs);

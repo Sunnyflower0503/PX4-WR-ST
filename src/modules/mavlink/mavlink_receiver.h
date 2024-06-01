@@ -103,6 +103,7 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_trajectory_bezier.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
+#include <uORB/topics/vehicle_air_data.h>
 
 #if !defined(CONSTRAINED_FLASH)
 # include <uORB/topics/debug_array.h>
