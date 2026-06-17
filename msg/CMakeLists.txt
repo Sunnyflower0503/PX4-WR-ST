@@ -142,6 +142,7 @@ set(msg_files
 	tecs_status.msg
 	telemetry_status.msg
 	test_motor.msg
+	throttle_kill.msg
 	timesync.msg
 	timesync_status.msg
 	trajectory_bezier.msg
@@ -185,6 +186,7 @@ set(msg_files
 	wheel_encoders.msg
 	wind.msg
 	yaw_estimator_status.msg
+	airdata_hil.msg
 )
 
 if(NOT px4_constrained_flash_build)

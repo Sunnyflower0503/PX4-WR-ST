@@ -303,6 +303,7 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 	 * This allows to provide fake gps measurements to the system.
 	 */
 
+    // WR revised, 20241024
 //        PX4_INFO("hil_enabled = %d, msgid = %d", _mavlink->get_hil_enabled(), msg->msgid);
 
 	if (_mavlink->get_hil_enabled()) {
@@ -312,12 +313,20 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 			break;
 
 		case MAVLINK_MSG_ID_HIL_STATE_QUATERNION:
-			handle_message_hil_state_quaternion(msg);
+            // WR revised, 20241024
+//            PX4_INFO("Receiving HIL_STATE_QUATERNION!");
+            handle_message_hil_state_quaternion(msg);
 			break;
 
 		case MAVLINK_MSG_ID_HIL_OPTICAL_FLOW:
 			handle_message_hil_optical_flow(msg);
 			break;
+
+        case MAVLINK_MSG_ID_WIND_COV:
+                // WR revised, 20241024
+//            PX4_INFO("Receiving MAVLINK_MSG_ID_WIND_COV!");
+            handle_message_wind_cov_hil(msg);
+            break;
 
 		default:
 			break;
@@ -561,6 +570,16 @@ void MavlinkReceiver::handle_message_command_both(mavlink_message_t *msg, const 
 			}
 		}
 
+	} else if (cmd_mavlink.command == MAV_CMD_USER_1) {
+		// Throttle kill command from ground station
+		// param1: 0 = release, 1 = activate kill
+		throttle_kill_s throttle_kill{};
+		throttle_kill.timestamp = hrt_absolute_time();
+		throttle_kill.kill = (vehicle_command.param1 > 0.5f);
+		_throttle_kill_pub.publish(throttle_kill);
+
+		PX4_INFO("THROTTLE_KILL via MAV_CMD_USER_1: kill=%d", (int)throttle_kill.kill);
+
 	} else {
 		send_ack = false;
 
@@ -764,6 +783,31 @@ MavlinkReceiver::handle_message_hil_optical_flow(mavlink_message_t *msg)
 	d.variance = 0.0;
 
 	_flow_distance_sensor_pub.publish(d);
+}
+
+void
+MavlinkReceiver::handle_message_wind_cov_hil(mavlink_message_t *msg)
+{
+    /* wind_cov */
+    mavlink_wind_cov_t flow;
+    mavlink_msg_wind_cov_decode(msg, &flow);
+
+    airdata_hil_s airdata_hil {}; /**< wind data from HIL, custom topic */
+
+    airdata_hil.windspeed_north = flow.wind_x;
+    airdata_hil.windspeed_east = flow.wind_y;
+    airdata_hil.windspeed_down = flow.wind_z;
+
+    airdata_hil.beta = flow.horiz_accuracy;    // beta, [rad]
+    airdata_hil.alpha = flow.vert_accuracy;    // alpha, [rad]
+
+
+    airdata_hil.timestamp = hrt_absolute_time(); // XXX we rely on the system time for now and not flow.time_usec;
+
+    _airdata_hil_pub.publish(airdata_hil);
+
+//    PX4_INFO("WS_N = %.3f", (double)airdata_hil.windspeed_north);
+
 }
 
 void

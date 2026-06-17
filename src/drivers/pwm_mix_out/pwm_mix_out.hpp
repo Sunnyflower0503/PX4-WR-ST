@@ -61,9 +61,12 @@
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/throttle_kill.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 //#include <px4_platform_common/px4_work_queue/WorkItem.hpp>
+#include <lib/mathlib/mathlib.h>
+#include <matrix/math.hpp>
 
 
 typedef enum
@@ -76,7 +79,9 @@ typedef enum
     VTOL_X2				= 5,		// 18 ducts, 14kg
     XWing				= 6,		// 18 ducts, 14kg
     x1mini				= 7,		// 3kg, 8 propellers, vtol
-    TEST				= 8		// test
+    hiland270			= 8,		// 270kg, 8 propellers, standard fw
+    TEST				= 9,		// test
+    TandemTailSitter    = 10        // 生态无人机
 } vehicle_id_e;
 
 
@@ -119,7 +124,6 @@ public:
 
     void mix_and_update_outputs();
 
-
 private:
     px4::atomic_bool _task_should_exit{false};
 
@@ -142,14 +146,20 @@ private:
     uORB::Subscription _actuator_armed_sub{ORB_ID(actuator_armed)};
     uORB::Subscription _actuator_controls_0_sub{ORB_ID(actuator_controls_0)};
     uORB::Subscription _actuator_controls_1_sub{ORB_ID(actuator_controls_1)};
+    uORB::Subscription _actuator_controls_6_sub{ORB_ID(actuator_controls_6)};
     uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {
                 {this, ORB_ID(actuator_controls_0), 0},
                 {this, ORB_ID(actuator_controls_1), 1},
                 {this, ORB_ID(actuator_controls_2), 2},
                 {this, ORB_ID(actuator_controls_3), 3},
                 {this, ORB_ID(actuator_controls_4), 4},
-                {this, ORB_ID(actuator_controls_5), 5}
+                {this, ORB_ID(actuator_controls_5), 5},
+                {this, ORB_ID(actuator_controls_6), 6}
     };
+
+    uORB::Subscription _actuator_dsc_sub{ORB_ID(actuator_controls_dsc)};
+    uORB::Subscription _throttle_kill_sub{ORB_ID(throttle_kill)};
+
 
     uORB::PublicationMulti<actuator_outputs_s> _actuator_outputs_pub{ORB_ID(actuator_outputs)};
 
@@ -189,6 +199,12 @@ private:
     actuator_outputs_s _actuator_outputs{};
     actuator_controls_s _actuator_controls_0{};
     actuator_controls_s _actuator_controls_1{};
+    actuator_controls_s _actuator_controls_6{};
+
+    actuator_controls_s _actuator_controls_dsc{};
+
+    throttle_kill_s _throttle_kill{};
+    bool _throttle_killed{false};
 
 
 
@@ -299,6 +315,8 @@ private:
         (ParamFloat<px4::params::MIXER_D_THR_LIM>) _thr_diff_limit,
         (ParamFloat<px4::params::FW_THR_IDLE>) _param_fw_thr_idle,
         (ParamFloat<px4::params::FW_THR_MAX>) _param_fw_thr_max,
+
+        (ParamInt<px4::params::MIXER_THR_KILL>) _thr_kill,
 
         (ParamInt<px4::params::COM_VEHICLE_ID>) _vehicle_id
 

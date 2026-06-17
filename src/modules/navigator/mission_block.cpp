@@ -464,17 +464,31 @@ MissionBlock::issue_command(const mission_item_s &item)
 	}
 
 	if (item.nav_cmd == NAV_CMD_DO_SET_SERVO) {
-		PX4_INFO("DO_SET_SERVO command");
 
-		// XXX: we should issue a vehicle command and handle this somewhere else
-		actuator_controls_s actuators = {};
-		actuators.timestamp = hrt_absolute_time();
+		// Magic number: actuator==707 means throttle kill
+		// param2: >0 = kill, 0 = release
+		if ((int)item.params[0] == 707) {
+			PX4_INFO("DO_SET_SERVO throttle kill via actuator 707");
 
-		// params[0] actuator number to be set 0..5 (corresponds to AUX outputs 1..6)
-		// params[1] new value for selected actuator in ms 900...2000
-		actuators.control[(int)item.params[0]] = 1.0f / 2000 * -item.params[1];
+			throttle_kill_s throttle_kill{};
+			throttle_kill.timestamp = hrt_absolute_time();
+			throttle_kill.kill = true;
 
-		_actuator_pub.publish(actuators);
+			_throttle_kill_pub.publish(throttle_kill);
+
+		} else {
+			PX4_INFO("DO_SET_SERVO command");
+
+			// XXX: we should issue a vehicle command and handle this somewhere else
+			actuator_controls_s actuators = {};
+			actuators.timestamp = hrt_absolute_time();
+
+			// params[0] actuator number to be set 0..5 (corresponds to AUX outputs 1..6)
+			// params[1] new value for selected actuator in ms 900...2000
+			actuators.control[(int)item.params[0]] = 1.0f / 2000 * -item.params[1];
+
+			_actuator_pub.publish(actuators);
+		}
 
 	} else {
 

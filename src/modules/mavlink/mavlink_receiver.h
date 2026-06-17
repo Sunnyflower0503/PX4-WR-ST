@@ -104,7 +104,8 @@
 #include <uORB/topics/vehicle_trajectory_bezier.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
 #include <uORB/topics/vehicle_air_data.h>
-
+#include <uORB/topics/airdata_hil.h>
+#include <uORB/topics/throttle_kill.h>
 #if !defined(CONSTRAINED_FLASH)
 # include <uORB/topics/debug_array.h>
 # include <uORB/topics/debug_key_value.h>
@@ -191,6 +192,8 @@ private:
 	void handle_message_gimbal_manager_set_manual_control(mavlink_message_t *msg);
 	void handle_message_gimbal_device_information(mavlink_message_t *msg);
 
+    void handle_message_wind_cov_hil(mavlink_message_t *msg);
+
 #if !defined(CONSTRAINED_FLASH)
 	void handle_message_debug(mavlink_message_t *msg);
 	void handle_message_debug_float_array(mavlink_message_t *msg);
@@ -262,6 +265,7 @@ private:
 
 	// ORB publications
 	uORB::Publication<actuator_controls_s>			_actuator_controls_pubs[4] {ORB_ID(actuator_controls_0), ORB_ID(actuator_controls_1), ORB_ID(actuator_controls_2), ORB_ID(actuator_controls_3)};
+	uORB::Publication<throttle_kill_s>			_throttle_kill_pub{ORB_ID(throttle_kill)};
 	uORB::Publication<airspeed_s>				_airspeed_pub{ORB_ID(airspeed)};
 	uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
 	uORB::Publication<cellular_status_s>			_cellular_status_pub{ORB_ID(cellular_status)};
@@ -314,6 +318,8 @@ private:
 	uORB::Publication<transponder_report_s>  _transponder_report_pub{ORB_ID(transponder_report)};
 	uORB::Publication<vehicle_command_s>     _cmd_pub{ORB_ID(vehicle_command)};
 	uORB::Publication<vehicle_command_ack_s> _cmd_ack_pub{ORB_ID(vehicle_command_ack)};
+
+    uORB::Publication<airdata_hil_s> _airdata_hil_pub{ORB_ID(airdata_hil)};
 
 	// ORB subscriptions
 	uORB::Subscription	_actuator_armed_sub{ORB_ID(actuator_armed)};

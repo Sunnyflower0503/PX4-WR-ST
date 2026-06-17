@@ -33,6 +33,8 @@
 
 #include "pwm_mix_out.hpp"
 
+using namespace matrix;
+
 pwm_mix_out::pwm_mix_out() :
     ModuleParams(nullptr),
     ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::hp_default),
@@ -250,19 +252,17 @@ int pwm_mix_out::set_pwm_rate(unsigned current_rate, unsigned default_rate, unsi
 
 bool pwm_mix_out::update_pwm_out_state(bool on)
 {
-
-
-
-                up_pwm_servo_init(_pwm_mask);
+    if(on==true) {
+        up_pwm_servo_init(_pwm_mask);
 
 //                PX4_INFO("update_pwm_out_state: on = %d, _pwm_mask = %d, pwm_mask_new = %d", on, _pwm_mask, pwm_mask_new);
 
-                // Set rate is not affecting non-masked channels, so can be called
-                // individually
+        // Set rate is not affecting non-masked channels, so can be called
+        // individually
 
 //                set_pwm_rate(get_alt_rate_channels(), get_default_rate(), get_alt_rate());
 
-                set_pwm_rate((unsigned)get_current_rate(), get_default_rate(), get_alt_rate());
+        set_pwm_rate((unsigned)get_current_rate(), get_default_rate(), get_alt_rate());
 
 
 
@@ -270,8 +270,14 @@ bool pwm_mix_out::update_pwm_out_state(bool on)
         up_pwm_servo_arm(on, _pwm_mask);
 
 //        PX4_INFO("pwm arm: on = %d, _pwm_mask = %d, PWM_OUT_MAX_INSTANCES = %d", on, _pwm_mask, PWM_OUT_MAX_INSTANCES);
+    }
+    else {
+//        up_pwm_servo_deinit(_pwm_mask);   // = up_pwm_servo_arm(false, channel_mask);
+//        up_pwm_servo_set_rate(0);
+        up_pwm_servo_arm(false, _pwm_mask);
+    }
 
-        return OK;
+    return OK;
 }
 
 void pwm_mix_out::update_current_rate()
@@ -310,22 +316,82 @@ void pwm_mix_out::mix_and_update_outputs()
     // 修改为直接在这里写混控器
 
     /* 0 - MC, 1 - FW */
-    // 固定翼的控制参数为第0组
+//  固定翼的控制参数为第0组
 //    uint8_t num_outputs = 14;
-    float ail1 = _actuator_controls_0.control[actuator_controls_s::INDEX_ROLL];
-    float ele1 = _actuator_controls_0.control[actuator_controls_s::INDEX_PITCH];
-    float rud1 = _actuator_controls_0.control[actuator_controls_s::INDEX_YAW];
+// TODO： 根据飞机类型作判断，到底应该用第0还是1组
+
+    float roll1 = _actuator_controls_0.control[actuator_controls_s::INDEX_ROLL];
+    float pitch1 = _actuator_controls_0.control[actuator_controls_s::INDEX_PITCH];
+    float yaw1 = _actuator_controls_0.control[actuator_controls_s::INDEX_YAW];
     float thr1 = _actuator_controls_0.control[actuator_controls_s::INDEX_THROTTLE];
     float flap1 = _actuator_controls_0.control[actuator_controls_s::INDEX_FLAPS];
+
+    // copy group 0 to group 6
+    float roll6 = _actuator_controls_6.control[actuator_controls_s::INDEX_ROLL];
+
+    // float gear1 = _actuator_controls_0.control[actuator_controls_s::INDEX_LANDING_GEAR];
 
     /* 根据无人机名称定义对应的混控器并输出 */
     switch (_VEHICLE_ID)
     {
     case vehicle_id_e::MC650 :
-    case vehicle_id_e::FeiLong_tiltrotor :
-    case vehicle_id_e::GuangHuan :
-    case vehicle_id_e::VTOL_X1 :
+    {
         break;
+    }
+
+    case vehicle_id_e::FeiLong_tiltrotor :
+    {
+        break;
+    }
+
+    case vehicle_id_e::GuangHuan :
+    {
+        // // # @output MAIN1 aileron
+        // // # @output MAIN2 elevator
+        // // # @output MAIN3 throttle
+        // // # @output MAIN4 rudder
+        // // # @output MAIN5 flaps
+        // // # @output MAIN6 gear
+        // _actuator_outputs.output[0] = math::gradual3(roll1*57.3f, _pwm_main1_min_x.get(), 0.f, _pwm_main1_max_x.get(), _pwm_main1_min.get(), _pwm_main1_trim.get(), _pwm_main1_max.get());
+        // _actuator_outputs.output[1] = math::gradual3(pitch1*57.3f, _pwm_main2_min_x.get(), 0.f, _pwm_main2_max_x.get(), _pwm_main2_min.get(), _pwm_main2_trim.get(), _pwm_main2_max.get());
+        // _actuator_outputs.output[2] = math::constrain(1000.f+thr1*1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
+        // _actuator_outputs.output[3] = math::gradual3(yaw1*57.3f, _pwm_main4_min_x.get(), 0.f, _pwm_main4_max_x.get(), _pwm_main4_min.get(), _pwm_main4_trim.get(), _pwm_main4_max.get());
+        // _actuator_outputs.output[4] = math::gradual3(flap1*57.3f, _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(), _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
+        // _actuator_outputs.output[5] = math::gradual3(gear1*57.3f, _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(), _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
+
+        // # @output MAIN1 right front dt
+        // # @output MAIN2 left behind dt
+        // # @output MAIN3 left front dt
+        // # @output MAIN4 right behind dt
+        // # @output MAIN5 elevon left
+        // # @output MAIN6 elevon right
+        // # @output MAIN7 add prop left
+        // # @output MAIN8 add prop right
+        float k_dd = 1.f; //俯仰差动缩放
+        float thr_diffp = math::constrain(pitch1, -thr_diff_limit, thr_diff_limit) * k_dd;
+        float thr_diffyaw = math::constrain(yaw1, -thr_diff_limit, thr_diff_limit) * k_dd;
+        float dt_frontleft  = math::constrain(thr1 + 0.5f*thr_diffp+0.5f*thr_diffyaw, 0.01f, param_fw_thr_max);
+        float dt_frontright  = math::constrain(thr1 + 0.5f*thr_diffp-0.5f*thr_diffyaw, 0.01f, param_fw_thr_max);
+        float dt_backleft = math::constrain(thr1 - 0.5f*thr_diffp+0.2f*thr_diffyaw, 0.01f, param_fw_thr_max);
+        float dt_backright = math::constrain(thr1 - 0.5f*thr_diffp-0.2f*thr_diffyaw, 0.01f, param_fw_thr_max);
+
+        _actuator_outputs.output[0] = math::constrain(1000.f+dt_frontright*1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
+        _actuator_outputs.output[1] = math::constrain(1000.f+dt_backleft*1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
+        _actuator_outputs.output[2] = math::constrain(1000.f+dt_frontleft*1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
+        _actuator_outputs.output[3] = math::constrain(1000.f+dt_backright*1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
+        _actuator_outputs.output[4] = math::gradual3(-roll1*57.3f + pitch1*57.3f, _pwm_main1_min_x.get(), 0.f, _pwm_main1_max_x.get(), _pwm_main1_min.get(), _pwm_main1_trim.get(), _pwm_main1_max.get());
+        _actuator_outputs.output[5] = math::gradual3(roll1*57.3f + pitch1*57.3f, _pwm_main1_min_x.get(), 0.f, _pwm_main1_max_x.get(), _pwm_main1_min.get(), _pwm_main1_trim.get(), _pwm_main1_max.get());
+        // _actuator_outputs.output[4] = math::gradual3(pitch1*57.3f, _pwm_main1_min_x.get(), 0.f, _pwm_main1_max_x.get(), _pwm_main1_min.get(), _pwm_main1_trim.get(), _pwm_main1_max.get());
+        // _actuator_outputs.output[5] = math::gradual3(pitch1*57.3f, _pwm_main1_min_x.get(), 0.f, _pwm_main1_max_x.get(), _pwm_main1_min.get(), _pwm_main1_trim.get(), _pwm_main1_max.get());
+        _actuator_outputs.output[6] = math::constrain(1300.f+roll6*1000.f,_pwm_main3_min.get(), _pwm_main3_max.get());
+        _actuator_outputs.output[7] = math::constrain(1300.f-roll6*1000.f,_pwm_main3_min.get(), _pwm_main3_max.get());
+        break;
+    }
+
+    case vehicle_id_e::VTOL_X1 :
+    {
+        break;
+    }
 
     case vehicle_id_e::MYSolar_7m :
     {
@@ -338,39 +404,258 @@ void pwm_mix_out::mix_and_update_outputs()
         4：左方向
         5：右方向
         6：左副翼
-        7：右副翼min
+        7：右副翼
         */
         //    actuator_outputs_s actuator_outputs{};
 
-        float thr_diff = math::constrain(rud1, -thr_diff_limit, thr_diff_limit);
-        float dt_left  = math::constrain(thr1 + 0.5f*thr_diff, param_fw_thr_idle, param_fw_thr_max);
-        float dt_right = math::constrain(dt_left - 1.0f*thr_diff, param_fw_thr_idle, param_fw_thr_max);
-        // 差动的权限比油门高
-        // 如果右油门饱和了，重新分配左油门以确保差动量足够
-        if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
-            dt_left = dt_right + 1.0f*thr_diff;
+        if( _armed_state == true ) {
+            // 小油门情况下自动放大油门差动的比例和限幅
+            float k_dd = 1.f;
+            k_dd = math::gradual(thr1, 0.1f, 0.3f, 1.5f, 1.0f);
+
+            float thr_diff = math::constrain(pitch1, -thr_diff_limit, thr_diff_limit) * k_dd;
+            float dt_left  = math::constrain(thr1 + 0.5f*thr_diff, param_fw_thr_idle, param_fw_thr_max);
+            float dt_right = math::constrain(dt_left - 1.0f*thr_diff, param_fw_thr_idle, param_fw_thr_max);
+            // 差动的权限比油门高
+            // 如果右油门饱和了，重新分配左油门以确保差动量足够
+            if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
+                dt_left = dt_right + 1.0f*thr_diff;
+            }
+
+            // TODO: 加入直接侧力控制，继写 _actuators.control[7] = (_att_sp.roll_body * 9.8f) * -0.5f; 	// dr = ayc * Kayc; ayc = phic*9.8; dd = -0.36*dr
+    //        float dirct_f = math::constrain(actuator_controls_1_t.control[7],-1.0f,1.0f);
+            _actuator_outputs.output[0] = math::constrain(1000.f+dt_left *1000.f, _pwm_main1_min.get(), _pwm_main1_max.get());
+            _actuator_outputs.output[1] = math::constrain(1000.f+dt_right*1000.f, _pwm_main2_min.get(), _pwm_main2_max.get());
+            _actuator_outputs.output[2] = math::gradual3(pitch1*57.3f*_pitch_scale.get(), _pwm_main3_min_x.get(), 0.f, _pwm_main3_max_x.get(), _pwm_main3_min.get(), _pwm_main3_trim.get(), _pwm_main3_max.get());
+
+            _actuator_outputs.output[3] = math::gradual3(yaw1*57.3f*_yaw_scale.get() -flap1*57.3f, _pwm_main4_min_x.get(), 0.f, _pwm_main4_max_x.get(), _pwm_main4_min.get(), _pwm_main4_trim.get(), _pwm_main4_max.get());
+            _actuator_outputs.output[4] = math::gradual3(yaw1*57.3f*_yaw_scale.get() +flap1*57.3f, _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(), _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
+            _actuator_outputs.output[5] = math::gradual3(roll1*57.3f*_roll_scale.get(), _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(), _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
+            _actuator_outputs.output[6] = math::gradual3(roll1*57.3f*_roll_scale.get(), _pwm_main7_min_x.get(), 0.f, _pwm_main7_max_x.get(), _pwm_main7_min.get(), _pwm_main7_trim.get(), _pwm_main7_max.get());
         }
-
-        // TODO: 加入直接侧力控制，继写 _actuators.control[7] = (_att_sp.roll_body * 9.8f) * -0.5f; 	// dr = ayc * Kayc; ayc = phic*9.8; dd = -0.36*dr
-//        float dirct_f = math::constrain(actuator_controls_1_t.control[7],-1.0f,1.0f);
-        _actuator_outputs.output[0] = math::constrain(1000.f+dt_left *1000.f, _pwm_main1_min.get(), _pwm_main1_max.get());
-        _actuator_outputs.output[1] = math::constrain(1000.f+dt_right*1000.f, _pwm_main2_min.get(), _pwm_main2_max.get());
-        _actuator_outputs.output[2] = math::gradual3(ele1*57.3f*_pitch_scale.get(), _pwm_main3_min_x.get(), 0.f, _pwm_main3_max_x.get(), _pwm_main3_min.get(), _pwm_main3_trim.get(), _pwm_main3_max.get());
-
-        _actuator_outputs.output[3] = math::gradual3(rud1*57.3f*_yaw_scale.get() -flap1*57.3f, _pwm_main4_min_x.get(), 0.f, _pwm_main4_max_x.get(), _pwm_main4_min.get(), _pwm_main4_trim.get(), _pwm_main4_max.get());
-        _actuator_outputs.output[4] = math::gradual3(rud1*57.3f*_yaw_scale.get() +flap1*57.3f, _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(), _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
-        _actuator_outputs.output[5] = math::gradual3(ail1*57.3f*_roll_scale.get(), _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(), _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
-        _actuator_outputs.output[6] = math::gradual3(ail1*57.3f*_roll_scale.get(), _pwm_main7_min_x.get(), 0.f, _pwm_main7_max_x.get(), _pwm_main7_min.get(), _pwm_main7_trim.get(), _pwm_main7_max.get());
+        else {
+            _actuator_outputs.output[0] = 900.0f;
+            _actuator_outputs.output[1] = 900.0f;
+            _actuator_outputs.output[2] = _pwm_main3_trim.get();
+            _actuator_outputs.output[3] = _pwm_main4_trim.get();
+            _actuator_outputs.output[4] = _pwm_main5_trim.get();
+            _actuator_outputs.output[5] = _pwm_main6_trim.get();
+            _actuator_outputs.output[6] = _pwm_main7_trim.get();
+        }
 
         break;
     }
+
+    case vehicle_id_e::hiland270 :
+    {
+        /*
+        1-8：从左到右的8个油门，分为四组：12、34、56、78，12和78可以差动控制航向
+        9： 副翼
+        10：升降
+        11：方向
+        */
+        //    actuator_outputs_s actuator_outputs{};
+
+        if( _armed_state == true ) {
+            // 小油门情况下自动放大油门差动的比例和限幅
+            float k_dd = 1.f;
+//            k_dd = math::gradual(thr1, 0.1f, 0.3f, 1.5f, 1.0f);
+
+            _actuator_dsc_sub.update(&_actuator_controls_dsc);
+
+            //                actuators_dsc.control[0] = 0.059f * ds; // da
+//                            actuators_dsc.control[2] = ds;      // dr
+            //                actuators_dsc.control[3] = -1.07f * ds;      // diff throttle, +left, -right
+
+            // 允许使用差动油门才能使用直接侧力控制
+            float ds_dr = (fabsf(thr_diff_limit)>=0.01f) ? _actuator_controls_dsc.control[2] : 0.f;
+            float ds_dd = ds_dr * -1.07f;
+            float ds_da = ds_dr * 0.059f;
+
+            float thr_diff = math::constrain(ds_dd, -thr_diff_limit, thr_diff_limit) * k_dd;
+            float dt_left  = math::constrain(thr1 + 0.5f*thr_diff, param_fw_thr_idle, param_fw_thr_max);
+            float dt_right = math::constrain(dt_left - 1.0f*thr_diff, param_fw_thr_idle, param_fw_thr_max);
+            // 差动的权限比油门高
+            // 如果右油门饱和了，重新分配左油门以确保差动量足够
+            if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
+                dt_left = dt_right + 1.0f*thr_diff;
+            }
+
+            // TODO: 加入直接侧力控制，继写 _actuators.control[7] = (_att_sp.roll_body * 9.8f) * -0.5f; 	// dr = ayc * Kayc; ayc = phic*9.8; dd = -0.36*dr
+    //        float dirct_f = math::constrain(actuator_controls_1_t.control[7],-1.0f,1.0f);
+            _actuator_outputs.output[0] = math::constrain(1000.f+dt_left *1000.f, _pwm_main1_min.get(), _pwm_main1_max.get());
+            _actuator_outputs.output[1] = math::constrain(1000.f+dt_left*1000.f, _pwm_main2_min.get(), _pwm_main2_max.get());
+            _actuator_outputs.output[2] = math::constrain(1000.f+thr1*1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
+            _actuator_outputs.output[3] = math::constrain(1000.f+thr1*1000.f, _pwm_main4_min.get(), _pwm_main4_max.get());
+            _actuator_outputs.output[4] = math::constrain(1000.f+thr1*1000.f, _pwm_main5_min.get(), _pwm_main5_max.get());
+            _actuator_outputs.output[5] = math::constrain(1000.f+thr1*1000.f, _pwm_main6_min.get(), _pwm_main6_max.get());
+            _actuator_outputs.output[6] = math::constrain(1000.f+dt_right*1000.f, _pwm_main7_min.get(), _pwm_main7_max.get());
+            _actuator_outputs.output[7] = math::constrain(1000.f+dt_right*1000.f, _pwm_main8_min.get(), _pwm_main8_max.get());
+
+            _actuator_outputs.output[8] = math::gradual3((roll1+ds_da)*57.3f*_roll_scale.get(), _pwm_aux1_min_x.get(), 0.f, _pwm_aux1_max_x.get(), _pwm_aux1_min.get(), _pwm_aux1_trim.get(), _pwm_aux1_max.get());
+            _actuator_outputs.output[9] = math::gradual3(pitch1*57.3f*_pitch_scale.get(), _pwm_aux2_min_x.get(), 0.f, _pwm_aux2_max_x.get(), _pwm_aux2_min.get(), _pwm_aux2_trim.get(), _pwm_aux2_max.get());
+            _actuator_outputs.output[10] = math::gradual3((yaw1+ds_dr)*57.3f*_yaw_scale.get(), _pwm_aux3_min_x.get(), 0.f, _pwm_aux3_max_x.get(), _pwm_aux3_min.get(), _pwm_aux3_trim.get(), _pwm_aux3_max.get());
+
+//            if( _count % 100 == 0 ) {
+//                PX4_INFO("dsc: da dr dd = %4.2f, %4.2f, %4.2f", (double)ds_da*57.3, (double)ds_dr*57.3, (double)ds_dd);
+//            }
+        }
+        else {
+            _actuator_outputs.output[0] = 900.0f;
+            _actuator_outputs.output[1] = 900.0f;
+            _actuator_outputs.output[2] = 900.0f;
+            _actuator_outputs.output[3] = 900.0f;
+            _actuator_outputs.output[4] = 900.0f;
+            _actuator_outputs.output[5] = 900.0f;
+            _actuator_outputs.output[6] = 900.0f;
+            _actuator_outputs.output[7] = 900.0f;
+
+            _actuator_outputs.output[8] = 1500.0f;
+            _actuator_outputs.output[9] = 1500.0f;
+            _actuator_outputs.output[10] = 1500.0f;
+        }
+
+        break;
+    }
+
+
     case vehicle_id_e::VTOL_X2 :
     case vehicle_id_e::XWing :
     case vehicle_id_e::x1mini :
+    case vehicle_id_e::TandemTailSitter :
+    {
+    /*
+    尾座式分布式动力串列翼 — 固定翼模式
+    俯视: 1右上, 2左下, 3左上, 4右下
+    MAIN1~4: 分布式电机 (左组2+3, 右组1+4)
+    MAIN5,6: 升降副翼
+    MAIN7,8: 翼尖桨 (固定翼模式停转)
+
+    控制分配:
+    - 推力 → 四电机均分
+    - 偏航 → 左组(2,3) vs 右组(1,4) 油门差动
+    - 滚转 → 升降副翼差动
+    - 俯仰 → 升降副翼同向
+    */
+
+    if (_armed_state == true) {
+
+        // -- 偏航油门差动 --
+        float thr_diff = math::constrain(yaw1, -thr_diff_limit, thr_diff_limit);
+        float dt_left  = math::constrain(thr1 + 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+        float dt_right = math::constrain(thr1 - 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+
+        // 防止一侧饱和后差动量丢失
+        if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
+            dt_left = dt_right + 1.0f * thr_diff;
+        }
+
+        // MAIN1: 电机1(右上) — 右侧
+        _actuator_outputs.output[0] = math::constrain(1000.f + dt_right * 1000.f,
+            _pwm_main1_min.get(), _pwm_main1_max.get());
+        // MAIN2: 电机2(左下) — 左侧
+        _actuator_outputs.output[1] = math::constrain(1000.f + dt_left  * 1000.f,
+            _pwm_main2_min.get(), _pwm_main2_max.get());
+        // MAIN3: 电机3(左上) — 左侧
+        _actuator_outputs.output[2] = math::constrain(1000.f + dt_left  * 1000.f,
+            _pwm_main3_min.get(), _pwm_main3_max.get());
+        // MAIN4: 电机4(右下) — 右侧
+        _actuator_outputs.output[3] = math::constrain(1000.f + dt_right * 1000.f,
+            _pwm_main4_min.get(), _pwm_main4_max.get());
+
+        // MAIN5: 左升降副翼 (delta mix: -roll + pitch)
+        _actuator_outputs.output[4] = math::gradual3(
+            (-roll1 + pitch1) * 57.3f * _pitch_scale.get(),
+            _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(),
+            _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
+        // MAIN6: 右升降副翼 (delta mix: +roll + pitch)
+        _actuator_outputs.output[5] = math::gradual3(
+            ( roll1 + pitch1) * 57.3f * _pitch_scale.get(),
+            _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(),
+            _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
+
+        // MAIN7,8: 翼尖桨关闭
+        _actuator_outputs.output[6] = _pwm_main7_min.get();
+        _actuator_outputs.output[7] = _pwm_main8_min.get();
+
+    } else {
+        // 未解锁 → 电机停转，舵面回中
+        _actuator_outputs.output[0] = 900.0f;
+        _actuator_outputs.output[1] = 900.0f;
+        _actuator_outputs.output[2] = 900.0f;
+        _actuator_outputs.output[3] = 900.0f;
+        _actuator_outputs.output[4] = _pwm_main5_trim.get();
+        _actuator_outputs.output[5] = _pwm_main6_trim.get();
+        _actuator_outputs.output[6] = 900.0f;
+        _actuator_outputs.output[7] = 900.0f;
+    }
+
+    break;
+    }
     case vehicle_id_e::TEST :
     default:
         break;
     }
+    // =================================================================
+    // Throttle Kill: force motor outputs to disarmed value (900 us)
+    // when armed but throttle is killed. Control surface channels
+    // are NOT affected, preserving attitude control.
+    // =================================================================
+    if (_throttle_killed && _armed_state) {
+        switch (_VEHICLE_ID) {
+        case vehicle_id_e::GuangHuan:
+            // Motors: MAIN1-4 (0-3), add props MAIN7-8 (6-7)
+            // Servos: elevons MAIN5-6 (4-5) -- NOT killed
+            _actuator_outputs.output[0] = 900.0f;
+            _actuator_outputs.output[1] = 900.0f;
+            _actuator_outputs.output[2] = 900.0f;
+            _actuator_outputs.output[3] = 900.0f;
+            _actuator_outputs.output[6] = 900.0f;
+            _actuator_outputs.output[7] = 900.0f;
+            break;
+
+        case vehicle_id_e::MYSolar_7m:
+            // Motors: left/right throttle MAIN1-2 (0-1)
+            // Servos: elevator/rudder/ailerons MAIN3-7 (2-6) -- NOT killed
+            _actuator_outputs.output[0] = 900.0f;
+            _actuator_outputs.output[1] = 900.0f;
+            break;
+
+        case vehicle_id_e::hiland270:
+            // Motors: MAIN1-8 (0-7)
+            // Servos: aileron/elevator/rudder AUX1-3 (8-10) -- NOT killed
+            for (int i = 0; i < 8; i++) {
+                _actuator_outputs.output[i] = 900.0f;
+            }
+            break;
+
+        case vehicle_id_e::VTOL_X2:
+        case vehicle_id_e::XWing:
+        case vehicle_id_e::x1mini:
+        case vehicle_id_e::TandemTailSitter:
+            // Motors: MAIN1-4 (0-3), wingtip MAIN7-8 (6-7)
+            // Servos: elevons MAIN5-6 (4-5) -- NOT killed
+            _actuator_outputs.output[0] = 900.0f;
+            _actuator_outputs.output[1] = 900.0f;
+            _actuator_outputs.output[2] = 900.0f;
+            _actuator_outputs.output[3] = 900.0f;
+            _actuator_outputs.output[6] = 900.0f;
+            _actuator_outputs.output[7] = 900.0f;
+            break;
+
+        case vehicle_id_e::FeiLong_tiltrotor:
+        case vehicle_id_e::MC650:
+        case vehicle_id_e::VTOL_X1:
+        case vehicle_id_e::TEST:
+        default:
+            // Placeholder/test vehicles: safe default, kill all MAIN outputs
+            for (int i = 0; i < 8; i++) {
+                _actuator_outputs.output[i] = 900.0f;
+            }
+            break;
+        }
+    }
+
 
 
 
@@ -446,20 +731,97 @@ void pwm_mix_out::Run()
 
 
     _actuator_armed_sub.update(&_actuator_armed);
-    if( _actuator_armed.armed != _armed_state_old ) {
+    if( _actuator_armed.armed != _armed_state_old )
+    {
         _armed_state = _actuator_armed.armed;
         _armed_state_old = _armed_state;
-        up_pwm_servo_arm(_armed_state, _pwm_mask);
 
-//        PX4_INFO("up_pwm_servo_arm state = %d", _armed_state);
+        if( _armed_state == true ) {
+            up_pwm_servo_arm(_armed_state, _pwm_mask);
+        }
 
         if( _armed_state == false ) {
-            return;
+            up_pwm_servo_arm(true, _pwm_mask);  // 经验证，arm先true再false, disarm时才不会打死
+//            up_pwm_servo_arm(_armed_state, 0);  // 不是 0 而是 _pwm_mask 的话disarm时会打死？
+//            up_pwm_update();    // 不update就不会下电？
+//            return;
         }
     }
 
+ /* 现象记录： 不同的else的设置
+    1. 以下情况在disarm时舵会打死，或者刚上电时舵会乱打
+        up_pwm_servo_arm(false,0)
+    2. 以下情况在disarm时舵会打死，但是刚上电时舵稳定不动。arm久了会偶尔抽风
+        up_pwm_servo_arm(false, 0);
+        up_pwm_update();
+        return;
+    3.以下情况在刚上电时舵会乱打，但是disarm时稳定，arm久了也不抽风
+        up_pwm_servo_arm(true, 0);
+        up_pwm_servo_arm(false, 0);
+        up_pwm_update();
+        return;
+    4.以下情况在刚上电时舵偶尔会乱打，disarm时打死，arm久了不抽风
+        up_pwm_servo_arm(false, _pwm_mask);
+        up_pwm_update();
+        return;
+    5.以下情况在刚上电时舵会乱打，但是disarm时稳定，arm久了也不抽风
+        up_pwm_servo_arm(true, _pwm_mask);
+        up_pwm_servo_arm(false, 0);
+        up_pwm_update();
+        return;
+    6.以下情况在刚上电时稳定，但是disarm时打死，arm久了也不抽风
+        if( _actuator_armed.armed != _armed_state_old )
+        {
+            _armed_state = _actuator_armed.armed;
+            _armed_state_old = _armed_state;
+            up_pwm_servo_arm(_armed_state, _pwm_mask);
+
+            if( _armed_state == false ) {
+                up_pwm_servo_arm(_armed_state, 0);  // 不是 0 而是 _pwm_mask 的话disarm时会打死？
+                up_pwm_update();    // 不update就不会下电？
+                return;
+            }
+        }
+    7.很偶尔在上电时舵乱打，其余一切正常
+        if( _armed_state == true ) {
+            up_pwm_servo_arm(_armed_state, _pwm_mask);
+        }
+        if( _armed_state == false ) {
+            up_pwm_servo_arm(true, 0);
+            up_pwm_servo_arm(_armed_state, 0);  // 不是 0 而是 _pwm_mask 的话disarm时会打死？
+            up_pwm_update();    // 不update就不会下电？
+            return;
+        }
+    8.一切正常，暂时还没发现上电时舵乱打
+        if( _armed_state == true ) {
+            up_pwm_servo_arm(_armed_state, _pwm_mask);
+        }
+        if( _armed_state == false ) {
+            up_pwm_servo_arm(true, _pwm_mask);
+            up_pwm_servo_arm(_armed_state, 0);  // 不是 0 而是 _pwm_mask 的话disarm时会打死？
+            up_pwm_update();    // 不update就不会下电？
+            return;
+        }
+
+*/
+
+//    if( _armed_state == true ) {
+//        up_pwm_servo_arm(_armed_state, _pwm_mask);
+//    }
+//    else {
+//        up_pwm_servo_arm(true, _pwm_mask);
+//        up_pwm_servo_arm(false, 0);
+//        up_pwm_update();
+//        return;
+//    }
+
     _actuator_controls_0_sub.update(&_actuator_controls_0);
     _actuator_controls_1_sub.update(&_actuator_controls_1);
+    _actuator_controls_6_sub.update(&_actuator_controls_6);
+    // Check throttle kill from uORB topic and parameter
+    _throttle_kill_sub.update(&_throttle_kill);
+    _throttle_killed = _throttle_kill.kill || (_thr_kill.get() == 1);
+
 
     /*
      * ======================混控器工作流程=========================================
@@ -484,8 +846,11 @@ void pwm_mix_out::Run()
 //                }
 //        }
 
-    mix_and_update_outputs();
+//    if( _count % 100 == 0 ) {
+//        PX4_INFO("VEHICLE_ID = %d", _VEHICLE_ID);
+//    }
 
+    mix_and_update_outputs();
 
     if (_current_update_rate == 0) {
             update_current_rate();
