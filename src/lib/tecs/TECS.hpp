@@ -135,7 +135,7 @@ public:
 	void set_seb_rate_ff_gain(float ff_gain) { _SEB_rate_ff = ff_gain; }
 
     // WR revised, 20220107
-    void set_tecs_method(float tecs_method) {_tecs_method = tecs_method; }
+    void set_tecs_method(int32_t tecs_method) {_tecs_method = tecs_method; }
     void set_ktp(float ktp) {_KTP = ktp; }
     void set_kti(float kti) {_KTI = kti; }
     void set_kep(float kep) {_KEP = kep; }
@@ -290,7 +290,7 @@ private:
 	float _SEB_rate_error{0.0f};					///< specific energy balance rate error (m**2/sec**3)
 
     // WR revised, 20220107
-    float _tecs_method{0.0f};
+    int32_t _tecs_method{0};
     float _KTP{0.4f};
     float _KTI{0.8f};
     float _KEP{0.4f};

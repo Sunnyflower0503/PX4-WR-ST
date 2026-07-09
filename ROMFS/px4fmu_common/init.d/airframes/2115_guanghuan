@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# @name Standard Plane
+# @name GuangHuan
 #
 # @type Standard Plane
 # @class Plane
@@ -25,6 +25,11 @@
 
 param set-default PWM_AUX_RATE 50
 param set-default PWM_MAIN_RATE 50
+
+param set-default FW_AIRSPD_MIN 12
+param set-default FW_AIRSPD_TRIM 19
+param set-default FW_AIRSPD_MAX 35
+
 
 param set-default COM_VEHICLE_ID 2
 

@@ -205,6 +205,8 @@ private:
 
     throttle_kill_s _throttle_kill{};
     bool _throttle_killed{false};
+    bool _throttle_kill_auto_restored{false};
+    hrt_abstime _throttle_kill_start_time{0};
 
 
 
@@ -317,6 +319,7 @@ private:
         (ParamFloat<px4::params::FW_THR_MAX>) _param_fw_thr_max,
 
         (ParamInt<px4::params::MIXER_THR_KILL>) _thr_kill,
+        (ParamFloat<px4::params::MIXER_THR_KILL_T>) _thr_kill_t,
 
         (ParamInt<px4::params::COM_VEHICLE_ID>) _vehicle_id
 

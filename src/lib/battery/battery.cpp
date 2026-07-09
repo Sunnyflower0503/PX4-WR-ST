@@ -130,6 +130,8 @@ void Battery::updateBatteryStatus(const hrt_abstime &timestamp, float voltage_v,
 		connected = false;
 	}
 
+	// PX4_INFO("batt_update: %.2f, %.2f",(double)voltage_v, (double)_state_of_charge);
+
 	battery_status_s battery_status{};
 	battery_status.voltage_v = voltage_v;
 	battery_status.voltage_filtered_v = _voltage_filter_v.getState();

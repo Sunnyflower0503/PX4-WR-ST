@@ -51,6 +51,8 @@
 #include <stdio.h>
 #include <mathlib/mathlib.h>
 
+using namespace matrix;
+
 ECL_Controller::ECL_Controller() :
 	_last_run(0),
 	_tc(0.1f),
@@ -142,4 +144,32 @@ float ECL_Controller::constrain_airspeed(float airspeed, float minspeed, float m
 	}
 
 	return airspeed_result;
+}
+
+
+Vector2f ECL_Controller::ESO_INDI(Vector2f x, Vector2f u)
+{
+	// x = [q_hat, Delta_q]
+	// u = [q, de]
+	Vector2f x_dot;
+	// x_dot(0) = -_INDI_l1*x(0) + 1.0f*x(1) + _INDI_l1*u(0) + _INDI_B*u(1);
+	x_dot(0) = -_INDI_l1*x(0) + 1.0f*x(1) + _INDI_l1*u(0) + _INDI_A*u(0) + _INDI_B*u(1);
+	x_dot(1) = -_INDI_l2*x(0) + 0.0f*x(1) + _INDI_l2*u(0);
+
+	return x_dot;
+}
+
+float ECL_Controller::get_x_dot(Vector2f u, float dt)
+{
+	// 采用rk4求ode
+	Vector2f k1, k2, k3, k4, x_step;
+	k1 = ESO_INDI(_INDI_state, u);
+	k2 = ESO_INDI(_INDI_state+k1*dt/2.f, u);
+	k3 = ESO_INDI(_INDI_state+k2*dt/2.f, u);
+	k4 = ESO_INDI(_INDI_state+k3*dt, u);
+	_INDI_state += (k1+2.f*k2+2.f*k3+k4)*dt/6.f;
+
+	x_step = ESO_INDI(_INDI_state, u);
+
+	return x_step(0);
 }

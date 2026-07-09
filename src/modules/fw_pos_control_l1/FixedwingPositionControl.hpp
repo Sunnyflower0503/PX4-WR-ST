@@ -89,6 +89,9 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/uORB.h>
 #include <vtol_att_control/vtol_type.h>
+#include <uORB/topics/airdata_hil.h>
+
+#include <uORB/topics/actuator_controls.h>
 
 using namespace launchdetection;
 using namespace runwaytakeoff;
@@ -152,10 +155,14 @@ private:
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
+    uORB::Subscription _airdata_hil_sub{ORB_ID(airdata_hil)};
+
 	uORB::Publication<vehicle_attitude_setpoint_s>		_attitude_sp_pub;
 	uORB::Publication<position_controller_status_s>		_pos_ctrl_status_pub{ORB_ID(position_controller_status)};			///< navigation capabilities publication
 	uORB::Publication<position_controller_landing_status_s>	_pos_ctrl_landing_status_pub{ORB_ID(position_controller_landing_status)};	///< landing status publication
 	uORB::Publication<tecs_status_s>			_tecs_status_pub{ORB_ID(tecs_status)};						///< TECS status publication
+
+    uORB::Publication<actuator_controls_s>		_actuators_dsc_pub{ORB_ID(actuator_controls_dsc)}; // 用于直接力控制
 
 	manual_control_setpoint_s	_manual_control_setpoint {};			///< r/c channel data
 	position_setpoint_triplet_s	_pos_sp_triplet {};		///< triplet of mission items
@@ -163,6 +170,8 @@ private:
 	vehicle_control_mode_s		_control_mode {};		///< control mode
 	vehicle_local_position_s	_local_pos {};			///< vehicle local position
 	vehicle_status_s		_vehicle_status {};		///< vehicle status
+
+    airdata_hil_s		_airdata_hil {};		///< airdata_hil, return WS_NED and BETA, ALPHA
 
 	double _current_latitude{0};
 	double _current_longitude{0};
@@ -229,9 +238,15 @@ private:
 	float _airspeed{0.0f};
 	float _eas2tas{1.0f};
 
-	float _pitch{0.0f};
-	float _yaw{0.0f};
+    float _pitch{0.0f};
+    float _yaw{0.0f};
 	float _yawrate{0.0f};
+
+    // WR revised, 20240816
+    float _roll{0.0f};
+    float _rollrate{0.0f};
+    int32_t _l1_method_old{0};
+    Vector2d _curr_wp_old{};
 
 	matrix::Vector3f _body_acceleration{};
 	matrix::Vector3f _body_velocity{};
@@ -399,11 +414,13 @@ private:
 		(ParamFloat<px4::params::FW_T_SEB_R_FF>) _param_seb_rate_ff,
 		(ParamFloat<px4::params::FW_T_CLMB_R_SP>) _param_climbrate_target,
 		(ParamFloat<px4::params::FW_T_SINK_R_SP>) _param_sinkrate_target,
-        (ParamFloat<px4::params::FW_T_TECS_METHOD>) _param_fw_t_tecs_method,    // WR revised, 20220107
+        (ParamInt<px4::params::FW_T_TECS_METHOD>) _param_fw_t_tecs_method,    // WR revised, 20220107
         (ParamFloat<px4::params::FW_T_KTP>) _param_fw_t_ktp,    // WR revised, 20220107
         (ParamFloat<px4::params::FW_T_KTI>) _param_fw_t_kti,    // WR revised, 20220107
         (ParamFloat<px4::params::FW_T_KEP>) _param_fw_t_kep,    // WR revised, 20220107
         (ParamFloat<px4::params::FW_T_KEI>) _param_fw_t_kei,    // WR revised, 20220107
+
+        (ParamInt<px4::params::FW_L1_METHOD>) _param_fw_l1_method,
 
 		(ParamFloat<px4::params::FW_THR_ALT_SCL>) _param_fw_thr_alt_scl,
 		(ParamFloat<px4::params::FW_THR_CRUISE>) _param_fw_thr_cruise,

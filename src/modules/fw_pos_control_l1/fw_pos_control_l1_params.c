@@ -839,7 +839,7 @@ PARAM_DEFINE_FLOAT(FW_T_SINK_R_SP, 2.0f);
  * @value 1 custom traditional tecs method
  * @group FW TECS
  */
-PARAM_DEFINE_FLOAT(FW_T_TECS_METHOD, 0.0f);
+PARAM_DEFINE_INT32(FW_T_TECS_METHOD, 0);
 
 /**
  * KTP of tecs.
@@ -884,3 +884,18 @@ PARAM_DEFINE_FLOAT(FW_T_KEP, 0.4f);
  * @group FW TECS
  */
 PARAM_DEFINE_FLOAT(FW_T_KEI, 0.8f);
+
+/* WR revised, 20240816*/
+/**
+ * Select of the methord of L1 of default or custom.
+ *
+ *
+ * 0=default, 1 = custom DRL control methord.
+ *
+ * @min 0
+ * @max 1
+ * @value 0 default l1 method
+ * @value 1 custom DRL method
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_INT32(FW_L1_METHOD, 0);

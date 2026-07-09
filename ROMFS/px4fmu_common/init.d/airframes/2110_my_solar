@@ -40,6 +40,8 @@
 	# set disarmed value for the ESC
 	param set-default PWM_DISARMED 1000
 
+	param set-default COM_VEHICLE_ID 4
+
 
 set MIXER MYSolar
 

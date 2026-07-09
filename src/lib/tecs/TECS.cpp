@@ -575,7 +575,7 @@ void TECS::update_pitch_throttle(float pitch, float baro_altitude, float hgt_set
 
 //	// Calculate the pitch demand
 //	_update_pitch_setpoint();
-    if (_tecs_method > 0.0f){
+    if (_tecs_method > 0){
         _update_throttle_setpoint_traditional(throttle_cruise);
         _update_pitch_setpoint_traditional();
     } else{

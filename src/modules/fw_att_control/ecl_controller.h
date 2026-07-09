@@ -50,6 +50,7 @@
 
 #include <drivers/drv_hrt.h>
 #include <px4_log.h>
+#include <matrix/math.hpp>
 
 struct ECL_ControlData {
 	float roll;
@@ -92,6 +93,17 @@ public:
 	void set_max_rate(float max_rate);
 	void set_bodyrate_setpoint(float rate);
 
+	//INDI
+	void set_INDI_kp_rate(float k_p){_INDI_kp_rate = k_p;};
+	void set_INDI_omega(float omega){_INDI_omega=omega; _INDI_l1=omega*2.f; _INDI_l2=omega*omega;};
+	void set_INDI_A(float A){_INDI_A = A;};
+	void set_INDI_B(float B){_INDI_B = B;};
+	// void reset_INDI(){_INDI_z1 = 0.f; _INDI_z2 = 0.f;};
+	void reset_INDI(){_INDI_state(0) = 0.f; _INDI_state(1) = 0.f;};
+	// virtual float control_euler_rate_INDI(const float dt, const ECL_ControlData &ctl_data) = 0;
+	matrix::Vector2f ESO_INDI(matrix::Vector2f x, matrix::Vector2f u);
+	float get_x_dot(matrix::Vector2f u, float dt);
+
 	/* Getters */
 	float get_rate_error();
 	float get_desired_rate();
@@ -114,4 +126,17 @@ protected:
 	float _rate_setpoint;
 	float _bodyrate_setpoint;
 	float constrain_airspeed(float airspeed, float minspeed, float maxspeed);
+
+	// INDI
+	float _INDI_kp_rate = 5.0f;
+	float _INDI_omega = 5.0f;
+	float _INDI_l1 = 10.0f;
+	float _INDI_l2 = 25.0f;
+	float _INDI_A = 0.0f;
+	float _INDI_B = -50.0f;
+	// float _INDI_z1 = 0.0f;
+	// float _INDI_z2 = 0.0f;
+	matrix::Vector2f _INDI_state = matrix::Vector2f(0.f, 0.f);
+
+	uint16_t _count = 0;
 };

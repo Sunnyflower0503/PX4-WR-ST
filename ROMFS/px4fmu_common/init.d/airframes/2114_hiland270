@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# @name hiland270
+#
+# @type Standard Plane
+# @class Plane
+#
+# @output MAIN1 throttle_1
+# @output MAIN2 throttle_2
+# @output MAIN3 throttle_3
+# @output MAIN4 throttle_4
+# @output MAIN5 throttle_5
+# @output MAIN6 throttle_6
+# @output MAIN7 throttle_7
+# @output MAIN8 throttle_8
+# @output AUX1  aileron
+# @output AUX2  elevator
+# @output AUX3  rudder
+#
+#
+
+. ${R}etc/init.d/rc.fw_defaults
+
+
+	param set-default FW_AIRSPD_MIN 25
+	param set-default FW_AIRSPD_TRIM 41
+	param set-default FW_AIRSPD_MAX 60
+
+	param set-default FW_MAN_P_MAX 55
+	param set-default FW_MAN_R_MAX 55
+	param set-default FW_R_LIM 55
+
+	param set-default FW_WR_FF 0.0
+	param set-default FW_WR_I 0.2
+	param set-default FW_WR_IMAX 0.8
+	param set-default FW_WR_P 1
+	param set-default FW_W_RMAX 0
+
+	# set disarmed value for the ESC
+	param set-default PWM_DISARMED 1000
+
+
+set MIXER MYSolar_da
+
+set MIXER_AUX MYSolar
+
+# use PWM parameters for throttle channel
+set PWM_OUT 12345678

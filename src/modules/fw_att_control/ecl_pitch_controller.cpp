@@ -43,6 +43,8 @@
 #include <lib/ecl/geo/geo.h>
 #include <mathlib/mathlib.h>
 
+using namespace matrix;
+
 float ECL_PitchController::control_attitude(const float dt, const ECL_ControlData &ctl_data)
 {
 	/* Do not calculate control signal with bad inputs */
@@ -120,4 +122,85 @@ float ECL_PitchController::control_euler_rate(const float dt, const ECL_ControlD
 	set_bodyrate_setpoint(_bodyrate_setpoint);
 
 	return control_bodyrate(dt, ctl_data);
+}
+
+
+// 采用INDI控制
+float ECL_PitchController::control_euler_rate_INDI(const float dt, const ECL_ControlData &ctl_data)
+{
+	/* Transform setpoint to body angular rates (jacobian) */
+	_bodyrate_setpoint = cosf(ctl_data.roll) * _rate_setpoint +
+			     cosf(ctl_data.pitch) * sinf(ctl_data.roll) * ctl_data.yaw_rate_setpoint;
+
+	set_bodyrate_setpoint(_bodyrate_setpoint);
+
+	return control_bodyrate_INDI(dt, ctl_data);
+}
+
+float ECL_PitchController::control_bodyrate_INDI(const float dt, const ECL_ControlData &ctl_data)
+{
+	/* Do not calculate control signal with bad inputs */
+	if (!(PX4_ISFINITE(ctl_data.roll) &&
+	      PX4_ISFINITE(ctl_data.pitch) &&
+	      PX4_ISFINITE(ctl_data.body_y_rate) &&
+	      PX4_ISFINITE(ctl_data.body_z_rate) &&
+	      PX4_ISFINITE(ctl_data.yaw_rate_setpoint) &&
+	      PX4_ISFINITE(ctl_data.airspeed_min) &&
+	      PX4_ISFINITE(ctl_data.airspeed_max) &&
+	      PX4_ISFINITE(ctl_data.scaler))) {
+
+		return math::constrain(_last_output, -1.0f, 1.0f);
+	}
+
+	/* Calculate body angular rate error */
+	_rate_error = _bodyrate_setpoint - ctl_data.body_y_rate;
+
+	// Euler法求解ESO
+	// // float control_matrix = _INDI_B/(ctl_data.scaler*ctl_data.scaler);	// MbarDe = ( CmDe*Q0*Sw*CA ) / Iy; scaler=V0/V
+	// float control_matrix = _INDI_B/(ctl_data.scaler);	// MbarDe = ( CmDe*Q0*Sw*CA ) / Iy; scaler=V0/V
+	// float e = _INDI_z1-ctl_data.body_y_rate;
+	// float z1_dot = _INDI_z2+control_matrix*_last_output-2.f*_INDI_omega*e;
+	// float z2_dot = -_INDI_omega*_INDI_omega*e;
+	// _INDI_z1 = _INDI_z1 + z1_dot*dt;
+	// _INDI_z2 = _INDI_z2 + z2_dot*dt;
+
+	// if( _count%300 == 0 ) {
+	// 	log_i("dt = %.3f, B = %.1f, omega = %.1f", dt, _INDI_B, _INDI_omega);
+	// 	log_i("z1_dot = %.2f, z2_dot = %.2f, z1 = %.2f, z2 = %.2f", z1_dot, z2_dot, _INDI_z1, _INDI_z2);
+	// 	log_i("err = %.2f, q_sp = %.2f, q = %.2f, du = %.2f, u = %.2f",_rate_error, _bodyrate_setpoint, ctl_data.body_y_rate, du, _last_output);
+
+	// }
+	// _count++;
+
+	// RK4法求解ESO
+	// float x0_dot = z1_dot;
+
+	// float B_scale = math::gradual3(_last_output, -0.2f, 0.f, 0.2f,    0.5f, 1.f, 1.5f);	// (x, x_low,x_hi, y_low,y_hi), 根据X-Wing的MDt曲线来给
+	float control_matrix = _INDI_B/(ctl_data.scaler);	// MbarDe = ( CmDe*Q0*Sw*CA ) / Iy; scaler=V0/V
+	// float control_matrix = _INDI_B;	// MbarDe = ( CmDe*Q0*Sw*CA ) / Iy; scaler=V0/V
+	// float control_matrix = _INDI_B*B_scale;	// MbarDe = ( CmDe*Q0*Sw*CA ) / Iy; scaler=V0/V
+
+
+	// Vector2f u = Vector2f(ctl_data.body_y_rate, _last_output);
+	Vector2f u = Vector2f(ctl_data.body_y_rate, _last_output/ctl_data.scaler);	// _last_output除以ctl_data.scaler是为了把ESO方程中的B(或者说u(1))也转换为control_matrix
+	// Vector2f u = Vector2f(ctl_data.body_y_rate, _last_output*B_scale);	// _last_output除以ctl_data.scaler是为了把ESO方程中的B(或者说u(1))也转换为control_matrix
+	float x0_dot = get_x_dot(u, dt);
+
+	// float x_err = x_sp - x;
+	float du = (_INDI_kp_rate*_rate_error - x0_dot)/control_matrix;
+	du = PX4_ISFINITE(du) ? du : 0.0f;
+	_last_output = (_last_output+du);
+
+	// if( _count%50 == 0 ) {
+	// 	// log_i("dt = %.3f, B = %.1f, omega = %.1f", dt, _INDI_B, _INDI_omega);
+	// 	// log_i("fw_att, dt = %.3f", dt);	// dt = 0.005
+	// 	// log_i("fw_att, q = %.2f, q_hat = %.2f", ctl_data.body_y_rate*57.3f, _INDI_state(0)*57.3f);
+	// 	// log_i("err = %.2f, q_sp = %.2f, q = %.2f, du = %.2f, u = %.2f",_rate_error, _bodyrate_setpoint, ctl_data.body_y_rate, du, _last_output);
+
+	// 	log_i("%.2f, %.2f", _last_output, B_scale);
+
+	// }
+	// _count++;
+
+	return math::constrain(-_last_output, -1.0f, 1.0f);
 }

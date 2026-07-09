@@ -91,6 +91,11 @@ FixedwingAttitudeControl::parameters_update()
 	_pitch_ctrl.set_k_i(_param_fw_pr_i.get());
 	_pitch_ctrl.set_k_ff(_param_fw_pr_ff.get());
 	_pitch_ctrl.set_integrator_max(_param_fw_pr_imax.get());
+	// INDI
+	_pitch_ctrl.set_INDI_kp_rate(_param_INDI_pitch_kp.get());
+	_pitch_ctrl.set_INDI_omega(_param_INDI_pitch_omega.get());
+	_pitch_ctrl.set_INDI_B(_param_INDI_pitch_B.get());
+	_INDI_pitch_sw = _param_INDI_pitch_sw.get();
 
 	/* roll control parameters */
 	_roll_ctrl.set_time_constant(_param_fw_r_tc.get());
@@ -98,6 +103,12 @@ FixedwingAttitudeControl::parameters_update()
 	_roll_ctrl.set_k_i(_param_fw_rr_i.get());
 	_roll_ctrl.set_k_ff(_param_fw_rr_ff.get());
 	_roll_ctrl.set_integrator_max(_param_fw_rr_imax.get());
+	// INDI
+	_roll_ctrl.set_INDI_kp_rate(_param_INDI_roll_kp.get());
+	_roll_ctrl.set_INDI_omega(_param_INDI_roll_omega.get());
+	_roll_ctrl.set_INDI_A(_param_INDI_roll_A.get());
+	_roll_ctrl.set_INDI_B(_param_INDI_roll_B.get());
+	_INDI_roll_sw = _param_INDI_roll_sw.get();
 
 	/* yaw control parameters */
 	_yaw_ctrl.set_k_p(_param_fw_yr_p.get());
@@ -269,6 +280,43 @@ float FixedwingAttitudeControl::get_airspeed_and_update_scaling()
 	return airspeed;
 }
 
+float FixedwingAttitudeControl::pitch_control_dty_scaling()
+{
+	// _airspeed_validated_sub.update();
+	// const bool airspeed_valid = PX4_ISFINITE(_airspeed_validated_sub.get().calibrated_airspeed_m_s)
+	// 			    && (hrt_elapsed_time(&_airspeed_validated_sub.get().timestamp) < 1_s);
+
+	// // if no airspeed measurement is available out best guess is to use the trim airspeed
+	// float airspeed = _param_fw_airspd_trim.get();
+
+	// if ((_param_fw_arsp_mode.get() == 0) && airspeed_valid) {
+	// 	/* prevent numerical drama by requiring 0.5 m/s minimal speed */
+	// 	airspeed = math::max(0.5f, _airspeed_validated_sub.get().calibrated_airspeed_m_s);
+
+	// } else {
+	// 	// VTOL: if we have no airspeed available and we are in hover mode then assume the lowest airspeed possible
+	// 	// this assumption is good as long as the vehicle is not hovering in a headwind which is much larger
+	// 	// than the stall airspeed
+	// 	if (_vehicle_status.is_vtol && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+	// 	    && !_vehicle_status.in_transition_mode) {
+	// 		airspeed = _param_fw_airspd_stall.get();
+	// 	}
+	// }
+	// get local speed, subplace airspeed with groundspeed
+	_local_pos_sub.update(&_local_pos);
+	float groundspeed = sqrtf(_local_pos.vx * _local_pos.vx + _local_pos.vy * _local_pos.vy);
+	float p_scaler ;
+	if (groundspeed < _param_fw_airspd_efct.get()) {
+        	p_scaler = 1.0f;
+    	} else {
+        	p_scaler = 0.0f;
+		// p_scaler = (9.0f - groundspeed) / (9.0f - _param_fw_airspd_efct.get());
+    	}
+
+	p_scaler = constrain(p_scaler,0.0f,1.0f);
+	return p_scaler;
+}
+
 void FixedwingAttitudeControl::Run()
 {
 	if (should_exit()) {
@@ -283,6 +331,14 @@ void FixedwingAttitudeControl::Run()
 	vehicle_attitude_s att;
 
         if (_att_sub.update(&att)) {
+
+		// 仿真模式下输出 V=11.1v，是由batterySimulator.cpp发送的
+		// 正常模式下，输出与真实值一致
+		// battery_status_s battery_status1{};
+		// if (_battery_status_sub.copy(&battery_status1)) {
+		// 	PX4_INFO("batt: %.2f, %.2f",(double)battery_status1.voltage_v, (double)battery_status1.remaining);
+		// }
+
 
 		// only update parameters if they changed
 		bool params_updated = _parameter_update_sub.updated();
@@ -529,14 +585,42 @@ void FixedwingAttitudeControl::Run()
 					control_input.yaw_rate_setpoint = _yaw_ctrl.get_desired_rate();
 
 					/* Run attitude RATE controllers which need the desired attitudes from above, add trim */
-					float roll_u = _roll_ctrl.control_euler_rate(dt, control_input);
+					// float roll_u = _roll_ctrl.control_euler_rate(dt, control_input);
+					float roll_u = 0.f;
+                    if (_INDI_roll_sw == 1 && _manual_control_setpoint.aux6 > 0) {
+						// INDI控制
+						if( _INDI_roll_sw_old != _INDI_roll_sw) {
+							_roll_ctrl.reset_INDI();
+							PX4_INFO("reset_INDI");
+						}
+						roll_u = _roll_ctrl.control_euler_rate_INDI(dt, control_input);
+					}
+					else {
+						roll_u = _roll_ctrl.control_euler_rate(dt, control_input);
+					}
+					_INDI_roll_sw_old = _INDI_roll_sw;
+
 					_actuators.control[actuator_controls_s::INDEX_ROLL] = (PX4_ISFINITE(roll_u)) ? roll_u + trim_roll : trim_roll;
 
 					if (!PX4_ISFINITE(roll_u)) {
 						_roll_ctrl.reset_integrator();
 					}
 
-					float pitch_u = _pitch_ctrl.control_euler_rate(dt, control_input);
+					// float pitch_u = _pitch_ctrl.control_euler_rate(dt, control_input);
+					float pitch_u = 0.f;
+					if (_INDI_pitch_sw == 1 && _manual_control_setpoint.aux6>0 ) {
+						// INDI控制
+						if( _INDI_pitch_sw_old != _INDI_pitch_sw) {
+							_pitch_ctrl.reset_INDI();
+							PX4_INFO("reset_INDI");
+						}
+						pitch_u = _pitch_ctrl.control_euler_rate_INDI(dt, control_input);
+					}
+					else {
+						pitch_u = _pitch_ctrl.control_euler_rate(dt, control_input);
+					}
+					_INDI_pitch_sw_old = _INDI_pitch_sw;
+
 					_actuators.control[actuator_controls_s::INDEX_PITCH] = (PX4_ISFINITE(pitch_u)) ? pitch_u + trim_pitch : trim_pitch;
 
 					if (!PX4_ISFINITE(pitch_u)) {
@@ -651,6 +735,19 @@ void FixedwingAttitudeControl::Run()
 		    _vcontrol_mode.flag_control_attitude_enabled ||
 		    _vcontrol_mode.flag_control_manual_enabled) {
 			_actuators_0_pub.publish(_actuators);
+			_actuators_6 = _actuators;
+			_actuators_6.control[actuator_controls_s::INDEX_PITCH]*=pitch_control_dty_scaling()*_param_fw_p_scaler.get();
+			if (_param_fw_actuator_6_en.get())
+			{
+				_actuators_6.control[actuator_controls_s::INDEX_THROTTLE] = _param_fw_actuator6_cr.get();
+				_actuators_6.control[actuator_controls_s::INDEX_ROLL]*=_param_fw_r_scaler.get();
+			}else{
+				_actuators_6.control[actuator_controls_s::INDEX_THROTTLE] = 0.0f;
+				_actuators_6.control[actuator_controls_s::INDEX_ROLL]=0.0f;
+
+			}
+
+			_actuators_6_pub.publish(_actuators_6);  // _actuators_6 是另一个 actuator_controls_s 实例
 		}
         }
 

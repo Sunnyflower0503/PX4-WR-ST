@@ -146,6 +146,14 @@ public:
 	void navigate_waypoints(const matrix::Vector2d &vector_A, const matrix::Vector2d &vector_B,
 				const matrix::Vector2d &vector_curr_position, const matrix::Vector2f &ground_speed);
 
+    //基于DRL的侧向轨迹控制
+    void navigate_waypoints_drl(const matrix::Vector2d &vector_A, const matrix::Vector2d &vector_B,
+                const matrix::Vector2d &vector_curr_position, const matrix::Vector2f &ground_speed, float beta, float p, float r, float phi);
+
+    void reset_crosstrack_error_integ() {_crosstrack_error_integ = 0.0f;}
+    float get_direct_sideforce_control_setpoint() { return _direct_sideforce_control_setpoint; }
+
+
 	/**
 	 * Navigate on an orbit around a loiter waypoint.
 	 *
@@ -224,6 +232,35 @@ private:
 	float _roll_slew_rate{0.0f};	///< roll angle setpoint slew rate limit in rad/s
 	float _dt{0};				///< control loop time in seconds
 
+    float _crosstrack_error_integ{0.0f}; //< integraton of crosstrack error, [meter.s]
+    float _direct_sideforce_control_setpoint{0.0f};
+
+    float _vyc_prev = 0.f;
+
+    // yi, y, vy, phi, chi, p, r, beta
+//    const float DRL_controller[2][8] = {
+//            {-0.9294f,   -0.8475f,   -1.8492f,   -1.7578f,   -0.1055f,    0.7210f,   -0.2773f,    0.1490f},
+//            {-0.7222f,   -0.6676f,   -1.4621f,   -1.2500f,   -0.0860f,    0.4184f,   -0.1796f,    0.1097f}
+//    };
+
+//    const float DRL_controller[2][8] = {
+//            {-0.9294f*0.3f,   -0.8475f*0.7f   -1.8492f*0.5f,   -1.7578f,   -0.1055f,    0.7210f,   -0.2773f,    0.1490f},
+//            {-0.7222f*0.3f,   -0.6676f*0.7f,   -1.4621f*0.5f,   -1.2500f,   -0.0860f,    0.4184f,   -0.1796f,    0.1097f}
+//    };
+
+    const float DRL_controller[2][8] = {
+            {    0.0607f,   -0.2668f,   -0.5951f,   -0.2105f,   -0.0123f,    -0.0214f,   -0.0341f,    0.1956f},
+            {   -0.4797f,   -2.1601f,   -1.8284f,   -1.3445f,   -0.0413f,    -0.8285f,   -0.4069f,    0.5256f,}
+    };
+    matrix::Matrix<float, 2, 8> _DRL_controller = matrix::Matrix<float, 2, 8>(DRL_controller);
+
+//    // yi, y, vy, phi, chi, p, r
+//    const float DRL_controller[2][7] = {
+//            {-0.8968f,   -1.7961f,   -1.8625f,   -0.7133f,   -0.0347f,    0.4841f,   -0.1372f},
+//            {-0.4899f,   -1.0590f,   -1.1785f,   -0.3762f,   -0.0235f,    0.2684f,   -0.0740f}
+//    };
+//    matrix::Matrix<float, 2, 7> _DRL_controller = matrix::Matrix<float, 2, 7>(DRL_controller);
+
 	/**
 	 * Convert a 2D vector from WGS84 to planar coordinates.
 	 *
@@ -242,6 +279,8 @@ private:
 	 *
 	 */
 	void update_roll_setpoint();
+
+    uint16_t _count = 0;
 
 };
 

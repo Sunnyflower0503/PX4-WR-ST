@@ -46,8 +46,9 @@ px4_add_board(
 		pca9685_pwm_out
 		power_monitor/ina226
 		#protocol_splitter
-		pwm_out_sim
-		pwm_out
+		pwm_mix_out
+		#pwm_out_sim
+		#pwm_out
 		rc_input
 		roboclaw
 		rpm

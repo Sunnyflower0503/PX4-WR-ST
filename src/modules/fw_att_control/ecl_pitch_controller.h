@@ -64,6 +64,9 @@ public:
 	float control_euler_rate(const float dt, const ECL_ControlData &ctl_data) override;
 	float control_bodyrate(const float dt, const ECL_ControlData &ctl_data) override;
 
+	float control_euler_rate_INDI(const float dt, const ECL_ControlData &ctl_data) /*override*/;
+	float control_bodyrate_INDI(const float dt, const ECL_ControlData &ctl_data);
+
 	/* Additional Setters */
 	void set_max_rate_pos(float max_rate_pos)
 	{

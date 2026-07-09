@@ -112,11 +112,13 @@ private:
 	uORB::SubscriptionData<airspeed_validated_s> _airspeed_validated_sub{ORB_ID(airspeed_validated)};
 
 	uORB::Publication<actuator_controls_s>		_actuators_0_pub;
+	uORB::Publication<actuator_controls_s>		_actuators_6_pub{ORB_ID(actuator_controls_6)};
 	uORB::Publication<vehicle_attitude_setpoint_s>	_attitude_sp_pub;
 	uORB::Publication<vehicle_rates_setpoint_s>	_rate_sp_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::PublicationMulti<rate_ctrl_status_s>	_rate_ctrl_status_pub{ORB_ID(rate_ctrl_status)};
 
 	actuator_controls_s			_actuators {};		/**< actuator control inputs */
+	actuator_controls_s			_actuators_6 {};
 	manual_control_setpoint_s		_manual_control_setpoint {};		/**< r/c channel data */
 	vehicle_attitude_setpoint_s		_att_sp {};		/**< vehicle attitude setpoint */
 	vehicle_control_mode_s			_vcontrol_mode {};	/**< vehicle control mode */
@@ -154,6 +156,12 @@ private:
 		(ParamInt<px4::params::FW_ARSP_SCALE_EN>) _param_fw_arsp_scale_en,
 
 		(ParamBool<px4::params::FW_BAT_SCALE_EN>) _param_fw_bat_scale_en,
+		(ParamBool<px4::params::FW_ACTUATOR_6_EN>) _param_fw_actuator_6_en,
+
+		(ParamFloat<px4::params::FW_ACTUATOR6_CR>) _param_fw_actuator6_cr,
+		(ParamFloat<px4::params::FW_AIRSPD_EFCT>) _param_fw_airspd_efct,
+		(ParamFloat<px4::params::FW_R_SCALER>) _param_fw_r_scaler,
+		(ParamFloat<px4::params::FW_P_SCALER>) _param_fw_p_scaler,
 
 		(ParamFloat<px4::params::FW_DTRIM_P_FLPS>) _param_fw_dtrim_p_flps,
 		(ParamFloat<px4::params::FW_DTRIM_P_VMAX>) _param_fw_dtrim_p_vmax,
@@ -205,6 +213,17 @@ private:
 		(ParamFloat<px4::params::FW_YR_IMAX>) _param_fw_yr_imax,
 		(ParamFloat<px4::params::FW_YR_P>) _param_fw_yr_p,
 
+		(ParamFloat<px4::params::FW_INDI_PIT_KP>) _param_INDI_pitch_kp,
+		(ParamFloat<px4::params::FW_INDI_PIT_OMG>) _param_INDI_pitch_omega,
+		(ParamFloat<px4::params::FW_INDI_PIT_B>) _param_INDI_pitch_B,
+		(ParamBool<px4::params::FW_INDI_PIT_SW>) _param_INDI_pitch_sw,
+
+		(ParamFloat<px4::params::FW_INDI_RLL_KP>) _param_INDI_roll_kp,
+		(ParamFloat<px4::params::FW_INDI_RLL_OMG>) _param_INDI_roll_omega,
+		(ParamFloat<px4::params::FW_INDI_RLL_A>) _param_INDI_roll_A,
+		(ParamFloat<px4::params::FW_INDI_RLL_B>) _param_INDI_roll_B,
+		(ParamBool<px4::params::FW_INDI_RLL_SW>) _param_INDI_roll_sw,
+
 		(ParamFloat<px4::params::TRIM_PITCH>) _param_trim_pitch,
 		(ParamFloat<px4::params::TRIM_ROLL>) _param_trim_roll,
 		(ParamFloat<px4::params::TRIM_YAW>) _param_trim_yaw
@@ -229,6 +248,14 @@ private:
 	void		vehicle_land_detected_poll();
 
 	float 		get_airspeed_and_update_scaling();
+	float 		pitch_control_dty_scaling();
+
+	// INDI
+	bool _INDI_pitch_sw = 0;
+	uint8_t _INDI_pitch_sw_old = 0;
+
+	bool _INDI_roll_sw = 0;
+	uint8_t _INDI_roll_sw_old = 0;
 
     uint16_t    _count = 0;
 };

@@ -1195,3 +1195,18 @@ PARAM_DEFINE_FLOAT(MIXER_D_THR_LIM, 0.3f);
  * @value 1 Kill throttle (motors to 900us)
  */
 PARAM_DEFINE_INT32(MIXER_THR_KILL, 0);
+
+/**
+ * Throttle Kill Timeout
+ *
+ * Auto-restore throttle after this many seconds.
+ * Set to 0 to disable auto-restore (manual restore only).
+ *
+ * @group Mixer
+ * @min 0
+ * @max 60
+ * @unit s
+ * @decimal 1
+ * @increment 0.5
+ */
+PARAM_DEFINE_FLOAT(MIXER_THR_KILL_T, 0.0f);

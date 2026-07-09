@@ -61,6 +61,9 @@ public:
 	float control_attitude(const float dt, const ECL_ControlData &ctl_data) override;
 	float control_euler_rate(const float dt, const ECL_ControlData &ctl_data) override;
 	float control_bodyrate(const float dt, const ECL_ControlData &ctl_data) override;
+
+	float control_euler_rate_INDI(const float dt, const ECL_ControlData &ctl_data) /*override*/;
+	float control_bodyrate_INDI(const float dt, const ECL_ControlData &ctl_data);
 };
 
 #endif // ECL_ROLL_CONTROLLER_H

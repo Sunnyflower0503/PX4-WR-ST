@@ -286,13 +286,16 @@ FixedwingPositionControl::vehicle_attitude_poll()
 			R = R * R_offset;
 
 			_yawrate = rates(0);
+            _rollrate = rates(2);
 
 		} else {
 			_yawrate = rates(2);
+            _rollrate = rates(0);
 		}
 
 		const Eulerf euler_angles(R);
-		_pitch = euler_angles(1);
+        _roll = euler_angles(0);
+        _pitch = euler_angles(1);
 		_yaw = euler_angles(2);
 
 		_body_acceleration = R.transpose() * Vector3f{_local_pos.ax, _local_pos.ay, _local_pos.az};
@@ -876,9 +879,46 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 				}
 			}
 
-			_l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
-			_att_sp.roll_body = _l1_control.get_roll_setpoint();
-			_att_sp.yaw_body = _l1_control.nav_bearing();
+            // 采用L1或者DRL控制航线
+            actuator_controls_s			actuators_dsc {0};
+
+            int32_t l1_method = _param_fw_l1_method.get();
+            if( l1_method == 0 ) {
+                _l1_control.navigate_waypoints(prev_wp, curr_wp, curr_pos, nav_speed_2d);
+                _att_sp.roll_body = _l1_control.get_roll_setpoint();
+                _att_sp.yaw_body = _l1_control.nav_bearing();
+
+                if( _count%100 ==0 ) {
+                    PX4_INFO("phic = %.1f", (double)_att_sp.roll_body * 57.3);
+                }
+            }
+            else {
+                if( _l1_method_old != l1_method ) {
+                    _l1_control.reset_crosstrack_error_integ();
+                }
+                if( _curr_wp_old != curr_wp ) {
+                    _curr_wp_old = curr_wp;
+                    _l1_control.reset_crosstrack_error_integ();
+                }
+                _l1_control.navigate_waypoints_drl(prev_wp, curr_wp, curr_pos, nav_speed_2d, _airdata_hil.beta, _rollrate, _yawrate, _roll);
+                _att_sp.roll_body = _l1_control.get_roll_setpoint();
+
+                // 生成直接侧力
+                float ds = -_l1_control.get_direct_sideforce_control_setpoint();
+                ds = math::constrain(ds, -20.f/57.3f, 20.f/57.3f);
+//                ds = ds * 1.f;  //取消使用直接侧力
+
+//                actuators_dsc.control[0] = 0.059f * ds; // da
+                actuators_dsc.control[2] = ds;      // dr
+//                actuators_dsc.control[3] = -1.07f * ds;      // diff throttle, +left, -right
+
+            }
+            _l1_method_old = l1_method;
+
+            // 直接侧力控制结果发布到 actuators_dsc
+            actuators_dsc.timestamp = hrt_absolute_time();
+            _actuators_dsc_pub.publish(actuators_dsc);
+
 
 			tecs_update_pitch_throttle(now, position_sp_alt,
 						   calculate_target_airspeed(mission_airspeed, ground_speed),
@@ -1784,6 +1824,13 @@ FixedwingPositionControl::Run()
 
 		Vector2d curr_pos(_current_latitude, _current_longitude);
 		Vector2f ground_speed(_local_pos.vx, _local_pos.vy);
+
+        // HIL模式下，从仿真程序中的wind_cov读到风的数据，然后传给airdata_hil
+        if( _airdata_hil_sub.update(&_airdata_hil) ) {
+//            if( _count%100 == 0 ){
+//                PX4_INFO("beta = %.3f", (double)_airdata_hil.beta);
+//            }
+        }
 
 		/*
 		 * Attempt to control position, on success (= sensors present and not in manual mode),

@@ -1722,6 +1722,8 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 	/* fallthrough */
 	case MAVLINK_MODE_CUSTOM:
         configure_stream_local("SERVO_OUTPUT_RAW_0", 100.0f);
+        configure_stream_local("WIND_COV", 10.0f);
+
 //        configure_stream_local("ACTUATOR_OUTPUT_STATUS", 100.0f);
         break;
 

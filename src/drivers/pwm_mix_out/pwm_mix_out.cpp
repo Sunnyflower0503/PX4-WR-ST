@@ -820,7 +820,37 @@ void pwm_mix_out::Run()
     _actuator_controls_6_sub.update(&_actuator_controls_6);
     // Check throttle kill from uORB topic and parameter
     _throttle_kill_sub.update(&_throttle_kill);
-    _throttle_killed = _throttle_kill.kill || (_thr_kill.get() == 1);
+    bool kill_requested = _throttle_kill.kill || (_thr_kill.get() == 1);
+
+    // If auto-restored, ignore persistent kill signal until explicitly cleared
+    if (_throttle_kill_auto_restored) {
+        if (!kill_requested) {
+            // Signal cleared: ready for next trigger
+            _throttle_kill_auto_restored = false;
+        }
+
+    } else if (kill_requested && !_throttle_killed) {
+        // Rising edge: start timer
+        _throttle_kill_start_time = hrt_absolute_time();
+        _throttle_killed = true;
+
+    } else if (kill_requested && _throttle_killed) {
+        // Already killed: check auto-restore timeout
+        float timeout_s = _thr_kill_t.get();
+
+        if (timeout_s > 0.0f) {
+            hrt_abstime elapsed = hrt_absolute_time() - _throttle_kill_start_time;
+
+            if (elapsed > (hrt_abstime)(timeout_s * 1_s)) {
+                _throttle_killed = false;
+                _throttle_kill_auto_restored = true;
+            }
+        }
+
+    } else {
+        // Kill released externally
+        _throttle_killed = false;
+    }
 
 
     /*

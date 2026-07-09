@@ -50,6 +50,8 @@ px4_add_romfs_files(
 	2111_my_shoupao
 	2112_vtol_x1
 	2113_my_solar_da
+	2114_hiland270
+	2115_guanghuan
 
 	2507_cloudship
 
