@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# @name Tandem with 2p
+#
+# @type Standard Plane
+# @class Plane
+#
+# @output MAIN1 dt1
+# @output MAIN2 dt2
+# @output MAIN3 dt3
+# @output MAIN4 dt4
+# @output MAIN5 left elevon
+# @output MAIN6 right elevon
+# @output MAIN7 left tiny prop
+# @output MAIN8 right tiny prop
+#
+# @output AUX1 feed-through of RC AUX1 channel
+# @output AUX2 feed-through of RC AUX2 channel
+# @output AUX3 feed-through of RC AUX3 channel
+#
+# @maintainer Lorenz Meier <lorenz@px4.io>
+#
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.fw_defaults
+
+
+param set-default PWM_AUX_RATE 50
+param set-default PWM_MAIN_RATE 50
+
+set MIXER TANDEM_2P
+
+# Rate must be set by group (see pwm info).
+# Throttle is in the same group as servos.

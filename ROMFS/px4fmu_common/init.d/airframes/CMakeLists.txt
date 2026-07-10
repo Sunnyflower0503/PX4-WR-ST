@@ -43,6 +43,8 @@ px4_add_romfs_files(
 
 	# [2000, 2999] Standard planes"
 	2100_standard_plane
+	2102_tandem_fw
+	2103_tandem_2p
 	2105_maja
 	2106_albatross
 	2200_mini_talon
@@ -144,6 +146,7 @@ px4_add_romfs_files(
 	13012_convergence
 	13013_deltaquad
 	13014_vtol_babyshark
+	13020_tandem_x_tailsitter
 	13030_generic_vtol_quad_tiltrotor
 	13050_generic_vtol_octo
 	13060_my_wg15_vtol
