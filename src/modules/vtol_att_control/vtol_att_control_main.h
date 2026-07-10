@@ -156,6 +156,7 @@ private:
 
 	uORB::Publication<actuator_controls_s>		_actuators_0_pub{ORB_ID(actuator_controls_0)};		//input for the mixer (roll,pitch,yaw,thrust)
 	uORB::Publication<actuator_controls_s>		_actuators_1_pub{ORB_ID(actuator_controls_1)};
+	uORB::Publication<actuator_controls_s>		_actuators_6_pub{ORB_ID(actuator_controls_6)};
 	uORB::Publication<vehicle_attitude_setpoint_s>	_v_att_sp_pub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Publication<vtol_vehicle_status_s>	_vtol_vehicle_status_pub{ORB_ID(vtol_vehicle_status)};
 
@@ -169,6 +170,7 @@ private:
 	actuator_controls_s			_actuators_mc_in{};	//actuator controls from mc_att_control
 	actuator_controls_s			_actuators_out_0{};	//actuator controls going to the mc mixer
 	actuator_controls_s			_actuators_out_1{};	//actuator controls going to the fw mixer (used for elevons)
+	actuator_controls_s			_actuators_6{};
 
 	airspeed_validated_s 				_airspeed_validated{};			// airspeed
 	manual_control_switches_s		_manual_control_switches{}; //manual control setpoint
@@ -216,6 +218,7 @@ private:
 		param_t vt_forward_thrust_enable_mode;
 		param_t mpc_land_alt1;
 		param_t mpc_land_alt2;
+		param_t diff_thrust_roll_scale;
 	} _params_handles{};
 
 	hrt_abstime _last_run_timestamp{0};

@@ -299,6 +299,7 @@ void Tailsitter::fill_actuator_outputs()
 
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
 		mc_out[actuator_controls_s::INDEX_THROTTLE] = fw_in[actuator_controls_s::INDEX_THROTTLE];
+		mc_out[actuator_controls_s::INDEX_PITCH] = fw_in[actuator_controls_s::INDEX_PITCH] * _params->diff_thrust_scale;
 
 		/* allow differential thrust if enabled */
 		if (_params->diff_thrust == 1) {
