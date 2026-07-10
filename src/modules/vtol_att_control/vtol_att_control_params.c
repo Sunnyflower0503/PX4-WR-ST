@@ -358,3 +358,14 @@ PARAM_DEFINE_FLOAT(VT_B_DEC_I, 0.1f);
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_INT32(VT_MC_ON_FMU, 0);
+
+/**
+ * Diff thrust scale for fixed-wing roll on tandem outputs
+ *
+ * @min 0
+ * @max 1
+ * @decimal 1
+ * @increment 0.01
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_FW_DIF_R_SC, 0.1f);

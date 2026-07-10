@@ -86,6 +86,7 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	_params_handles.fw_motors_off = param_find("VT_FW_MOT_OFFID");
 	_params_handles.diff_thrust = param_find("VT_FW_DIFTHR_EN");
 	_params_handles.diff_thrust_scale = param_find("VT_FW_DIFTHR_SC");
+	_params_handles.diff_thrust_roll_scale = param_find("VT_FW_DIF_R_SC");
 	_params_handles.dec_to_pitch_ff = param_find("VT_B_DEC_FF");
 	_params_handles.dec_to_pitch_i = param_find("VT_B_DEC_I");
 	_params_handles.back_trans_dec_sp = param_find("VT_B_DEC_MSS");
@@ -272,6 +273,7 @@ VtolAttitudeControl::parameters_update()
 	param_get(_params_handles.front_trans_timeout, &_params.front_trans_timeout);
 	param_get(_params_handles.mpc_xy_cruise, &_params.mpc_xy_cruise);
 	param_get(_params_handles.diff_thrust, &_params.diff_thrust);
+	param_get(_params_handles.diff_thrust_roll_scale, &_params.diff_thrust_roll_scale);
 
 	param_get(_params_handles.diff_thrust_scale, &v);
 	_params.diff_thrust_scale = math::constrain(v, -1.0f, 1.0f);
@@ -430,6 +432,8 @@ VtolAttitudeControl::Run()
 				_v_att_sp_pub.publish(_v_att_sp);
 			}
 
+			_actuators_6 = _actuators_out_0;
+			_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
 			break;
 
 		case mode::ROTARY_WING:
@@ -441,6 +445,8 @@ VtolAttitudeControl::Run()
 			_vtol_type->update_mc_state();
 			_v_att_sp_pub.publish(_v_att_sp);
 
+			_actuators_6 = _actuators_out_0;
+			_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
 			break;
 
 		case mode::FIXED_WING:
@@ -454,9 +460,15 @@ VtolAttitudeControl::Run()
 				_v_att_sp_pub.publish(_v_att_sp);
 			}
 
+			_actuators_6 = _actuators_out_1;
+			_actuators_6.control[actuator_controls_s::INDEX_YAW] = 0.0f;
+			_actuators_6.control[actuator_controls_s::INDEX_ROLL] =
+				_actuators_6.control[actuator_controls_s::INDEX_ROLL] * _params.diff_thrust_roll_scale;
 			break;
 		}
 
+		_actuators_6.control[actuator_controls_s::INDEX_THROTTLE] = 0.6f;
+		_actuators_6_pub.publish(_actuators_6);
 		_vtol_type->fill_actuator_outputs();
 		_actuators_0_pub.publish(_actuators_out_0);
 		_actuators_1_pub.publish(_actuators_out_1);
