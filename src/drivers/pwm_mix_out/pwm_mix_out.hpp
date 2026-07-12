@@ -62,6 +62,7 @@
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/throttle_kill.h>
+#include <uORB/topics/vtol_vehicle_status.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 //#include <px4_platform_common/px4_work_queue/WorkItem.hpp>
@@ -147,6 +148,7 @@ private:
     uORB::Subscription _actuator_controls_0_sub{ORB_ID(actuator_controls_0)};
     uORB::Subscription _actuator_controls_1_sub{ORB_ID(actuator_controls_1)};
     uORB::Subscription _actuator_controls_6_sub{ORB_ID(actuator_controls_6)};
+    uORB::Subscription _vtol_vehicle_status_sub{ORB_ID(vtol_vehicle_status)};
     uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {
                 {this, ORB_ID(actuator_controls_0), 0},
                 {this, ORB_ID(actuator_controls_1), 1},
@@ -200,6 +202,7 @@ private:
     actuator_controls_s _actuator_controls_0{};
     actuator_controls_s _actuator_controls_1{};
     actuator_controls_s _actuator_controls_6{};
+    vtol_vehicle_status_s _vtol_vehicle_status{};
 
     actuator_controls_s _actuator_controls_dsc{};
 
@@ -321,6 +324,7 @@ private:
         (ParamInt<px4::params::MIXER_THR_KILL>) _thr_kill,
         (ParamFloat<px4::params::MIXER_THR_KILL_T>) _thr_kill_t,
 
+        (ParamInt<px4::params::VT_ELEV_MC_LOCK>) _vt_elev_mc_lock,
         (ParamInt<px4::params::COM_VEHICLE_ID>) _vehicle_id
 
     );
