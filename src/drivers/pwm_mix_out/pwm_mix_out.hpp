@@ -59,6 +59,7 @@
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/airspeed_validated.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/throttle_kill.h>
@@ -148,6 +149,7 @@ private:
     uORB::Subscription _actuator_controls_0_sub{ORB_ID(actuator_controls_0)};
     uORB::Subscription _actuator_controls_1_sub{ORB_ID(actuator_controls_1)};
     uORB::Subscription _actuator_controls_6_sub{ORB_ID(actuator_controls_6)};
+    uORB::Subscription _airspeed_validated_sub{ORB_ID(airspeed_validated)};
     uORB::Subscription _vtol_vehicle_status_sub{ORB_ID(vtol_vehicle_status)};
     uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {
                 {this, ORB_ID(actuator_controls_0), 0},
@@ -202,6 +204,7 @@ private:
     actuator_controls_s _actuator_controls_0{};
     actuator_controls_s _actuator_controls_1{};
     actuator_controls_s _actuator_controls_6{};
+    airspeed_validated_s _airspeed_validated{};
     vtol_vehicle_status_s _vtol_vehicle_status{};
 
     actuator_controls_s _actuator_controls_dsc{};
@@ -320,6 +323,10 @@ private:
         (ParamFloat<px4::params::MIXER_D_THR_LIM>) _thr_diff_limit,
         (ParamFloat<px4::params::FW_THR_IDLE>) _param_fw_thr_idle,
         (ParamFloat<px4::params::FW_THR_MAX>) _param_fw_thr_max,
+
+        (ParamFloat<px4::params::FW_PMD_GAIN>) _fw_pitch_motor_diff_gain,
+        (ParamFloat<px4::params::FW_PMD_ASPD_ST>) _fw_pitch_motor_diff_aspd_start,
+        (ParamFloat<px4::params::FW_PMD_ASPD_FULL>) _fw_pitch_motor_diff_aspd_full,
 
         (ParamInt<px4::params::MIXER_THR_KILL>) _thr_kill,
         (ParamFloat<px4::params::MIXER_THR_KILL_T>) _thr_kill_t,

@@ -2,7 +2,7 @@
 
 Date: 2026-07-12
 
-This document records the HITL `pwm_mix_out` control-group wiring and the TandemTailSitter output mapping after aligning it with the original flight firmware architecture. The original flight reference is `D:\D_zx\251201CLY\Firmware\Firmware`; the HITL code is `D:\D_zx\PX4-WR`.
+This document records the HITL `pwm_mix_out` control-group wiring and the TandemTailSitter output mapping after aligning it with the original flight firmware architecture. The original flight reference is `D:\D_zx\251201CLY\Firmware\Firmware`; the HITL code is `D:\D_zx\26WORK\ShengTai\0710HITL_ST\PX4-WR-ST`.
 
 ## Current HITL Variable Sources
 

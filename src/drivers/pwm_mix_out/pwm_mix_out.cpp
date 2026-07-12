@@ -543,30 +543,103 @@ void pwm_mix_out::mix_and_update_outputs()
     case vehicle_id_e::VTOL_X2 :
     case vehicle_id_e::XWing :
     case vehicle_id_e::x1mini :
+    {
+    /*
+    Legacy tailsitter mapping for non-Tandem variants.
+    */
+
+    if (_armed_state == true) {
+        // -- 偏航油门差动 --
+        float thr_diff = math::constrain(legacy_yaw, -thr_diff_limit, thr_diff_limit);
+        float dt_left  = math::constrain(legacy_thr + 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+        float dt_right = math::constrain(legacy_thr - 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+
+        if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
+            dt_left = dt_right + 1.0f * thr_diff;
+        }
+
+        _actuator_outputs.output[0] = math::constrain(1000.f + dt_right * 1000.f,
+            _pwm_main1_min.get(), _pwm_main1_max.get());
+        _actuator_outputs.output[1] = math::constrain(1000.f + dt_left  * 1000.f,
+            _pwm_main2_min.get(), _pwm_main2_max.get());
+        _actuator_outputs.output[2] = math::constrain(1000.f + dt_left  * 1000.f,
+            _pwm_main3_min.get(), _pwm_main3_max.get());
+        _actuator_outputs.output[3] = math::constrain(1000.f + dt_right * 1000.f,
+            _pwm_main4_min.get(), _pwm_main4_max.get());
+
+        _actuator_outputs.output[4] = math::gradual3(
+            (-legacy_roll + legacy_pitch) * 57.3f * _pitch_scale.get(),
+            _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(),
+            _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
+        _actuator_outputs.output[5] = math::gradual3(
+            ( legacy_roll + legacy_pitch) * 57.3f * _pitch_scale.get(),
+            _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(),
+            _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
+
+        _actuator_outputs.output[6] = _pwm_main7_min.get();
+        _actuator_outputs.output[7] = _pwm_main8_min.get();
+
+    } else {
+        _actuator_outputs.output[0] = 900.0f;
+        _actuator_outputs.output[1] = 900.0f;
+        _actuator_outputs.output[2] = 900.0f;
+        _actuator_outputs.output[3] = 900.0f;
+        _actuator_outputs.output[4] = _pwm_main5_trim.get();
+        _actuator_outputs.output[5] = _pwm_main6_trim.get();
+        _actuator_outputs.output[6] = 900.0f;
+        _actuator_outputs.output[7] = 900.0f;
+    }
+
+    break;
+    }
+
     case vehicle_id_e::TandemTailSitter :
     {
     /*
-    Tandem tailsitter control-group mapping:
-    MAIN1-4: actuator_controls_0, equivalent to legacy R: 4x.
-    MAIN5-6: actuator_controls_1, equivalent to original elevon mixer.
-    MAIN7-8: actuator_controls_6 yaw only in rotary-wing/transition.
+    Tandem tailsitter actuator allocation:
+    Fixed-wing: MAIN1/3 front and MAIN2/4 rear thrust with low-airspeed pitch differential,
+    plus left/right yaw differential. Fixed-wing roll is intentionally ignored by MAIN1-4.
+    Rotary-wing: MAIN1-4 use roll0/pitch0/thr0 only; MAIN7-8 use yaw6 only.
     */
 
     if (_armed_state == true) {
         const bool fixed_wing_mode = !_vtol_vehicle_status.vtol_in_rw_mode && !_vtol_vehicle_status.vtol_in_trans_mode;
-        const float motor_yaw = fixed_wing_mode ? yaw0 : 0.0f;
+        const float airspeed = PX4_ISFINITE(_airspeed_validated.true_airspeed_m_s) ?
+            _airspeed_validated.true_airspeed_m_s : 0.0f;
+        float pitch_motor_diff = 0.0f;
+        float yaw_motor_diff = 0.0f;
 
-        const float motor1 = math::constrain(thr0 - 0.707107f * roll0 + 0.707107f * pitch0 + motor_yaw, 0.0f, 1.0f);
-        const float motor2 = math::constrain(thr0 + 0.707107f * roll0 - 0.707107f * pitch0 + motor_yaw, 0.0f, 1.0f);
-        const float motor3 = math::constrain(thr0 + 0.707107f * roll0 + 0.707107f * pitch0 - motor_yaw, 0.0f, 1.0f);
-        const float motor4 = math::constrain(thr0 - 0.707107f * roll0 - 0.707107f * pitch0 - motor_yaw, 0.0f, 1.0f);
+        if (fixed_wing_mode) {
+            const float aspd_start = _fw_pitch_motor_diff_aspd_start.get();
+            const float aspd_full = _fw_pitch_motor_diff_aspd_full.get();
+            const float aspd_span = math::max(fabsf(aspd_start - aspd_full), 0.1f);
+            const float low_aspd_weight = (aspd_start >= aspd_full) ?
+                math::constrain((aspd_start - airspeed) / aspd_span, 0.0f, 1.0f) :
+                math::constrain((aspd_full - airspeed) / aspd_span, 0.0f, 1.0f);
 
-        _actuator_outputs.output[0] = math::constrain(1000.f + motor1 * 1000.f, _pwm_main1_min.get(), _pwm_main1_max.get());
-        _actuator_outputs.output[1] = math::constrain(1000.f + motor2 * 1000.f, _pwm_main2_min.get(), _pwm_main2_max.get());
-        _actuator_outputs.output[2] = math::constrain(1000.f + motor3 * 1000.f, _pwm_main3_min.get(), _pwm_main3_max.get());
-        _actuator_outputs.output[3] = math::constrain(1000.f + motor4 * 1000.f, _pwm_main4_min.get(), _pwm_main4_max.get());
+            pitch_motor_diff = math::constrain(pitch0 * _fw_pitch_motor_diff_gain.get() * low_aspd_weight,
+                -thr_diff_limit, thr_diff_limit);
 
-        if (fixed_wing_mode || _vt_elev_mc_lock.get() == 0) {
+            yaw_motor_diff = math::constrain(yaw0 * _thr_rud_sc.get(), -thr_diff_limit, thr_diff_limit);
+            const float right_front = math::constrain(thr0 + pitch_motor_diff - 0.5f * yaw_motor_diff,
+                param_fw_thr_idle, param_fw_thr_max);
+            const float left_rear = math::constrain(thr0 - pitch_motor_diff + 0.5f * yaw_motor_diff,
+                param_fw_thr_idle, param_fw_thr_max);
+            const float left_front = math::constrain(thr0 + pitch_motor_diff + 0.5f * yaw_motor_diff,
+                param_fw_thr_idle, param_fw_thr_max);
+            const float right_rear = math::constrain(thr0 - pitch_motor_diff - 0.5f * yaw_motor_diff,
+                param_fw_thr_idle, param_fw_thr_max);
+
+            // MAIN1 right-front, MAIN2 left-rear, MAIN3 left-front, MAIN4 right-rear.
+            _actuator_outputs.output[0] = math::constrain(1000.f + right_front * 1000.f,
+                _pwm_main1_min.get(), _pwm_main1_max.get());
+            _actuator_outputs.output[1] = math::constrain(1000.f + left_rear * 1000.f,
+                _pwm_main2_min.get(), _pwm_main2_max.get());
+            _actuator_outputs.output[2] = math::constrain(1000.f + left_front * 1000.f,
+                _pwm_main3_min.get(), _pwm_main3_max.get());
+            _actuator_outputs.output[3] = math::constrain(1000.f + right_rear * 1000.f,
+                _pwm_main4_min.get(), _pwm_main4_max.get());
+
             _actuator_outputs.output[4] = math::gradual3(
                 (-roll1 + pitch1) * 57.3f * _pitch_scale.get(),
                 _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(),
@@ -575,15 +648,28 @@ void pwm_mix_out::mix_and_update_outputs()
                 (-roll1 - pitch1) * 57.3f * _pitch_scale.get(),
                 _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(),
                 _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
-        } else {
-            _actuator_outputs.output[4] = _pwm_main5_trim.get();
-            _actuator_outputs.output[5] = _pwm_main6_trim.get();
-        }
 
-        if (fixed_wing_mode) {
             _actuator_outputs.output[6] = _pwm_main7_min.get();
             _actuator_outputs.output[7] = _pwm_main8_min.get();
+
         } else {
+            const float motor1 = math::constrain(thr0 - 0.707107f * roll0 + 0.707107f * pitch0, 0.0f, 1.0f);
+            const float motor2 = math::constrain(thr0 + 0.707107f * roll0 - 0.707107f * pitch0, 0.0f, 1.0f);
+            const float motor3 = math::constrain(thr0 + 0.707107f * roll0 + 0.707107f * pitch0, 0.0f, 1.0f);
+            const float motor4 = math::constrain(thr0 - 0.707107f * roll0 - 0.707107f * pitch0, 0.0f, 1.0f);
+
+            _actuator_outputs.output[0] = math::constrain(1000.f + motor1 * 1000.f,
+                _pwm_main1_min.get(), _pwm_main1_max.get());
+            _actuator_outputs.output[1] = math::constrain(1000.f + motor2 * 1000.f,
+                _pwm_main2_min.get(), _pwm_main2_max.get());
+            _actuator_outputs.output[2] = math::constrain(1000.f + motor3 * 1000.f,
+                _pwm_main3_min.get(), _pwm_main3_max.get());
+            _actuator_outputs.output[3] = math::constrain(1000.f + motor4 * 1000.f,
+                _pwm_main4_min.get(), _pwm_main4_max.get());
+
+            _actuator_outputs.output[4] = _pwm_main5_trim.get();
+            _actuator_outputs.output[5] = _pwm_main6_trim.get();
+
             const float tip_idle = 1300.0f;
             const float yaw_gain = 1000.0f * _yaw_scale.get();
 
@@ -591,6 +677,18 @@ void pwm_mix_out::mix_and_update_outputs()
                 _pwm_main7_min.get(), _pwm_main7_max.get());
             _actuator_outputs.output[7] = math::constrain(tip_idle - yaw_gain * yaw6,
                 _pwm_main8_min.get(), _pwm_main8_max.get());
+        }
+
+        if (_count % 100 == 0) {
+            PX4_INFO("Tandem mix mode=%s aspd=%4.1f thr0=%4.2f r0=%4.2f p0=%4.2f y0=%4.2f y6=%4.2f pmd=%4.2f ymd=%4.2f "
+                "out=%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f",
+                fixed_wing_mode ? "FW" : "MC",
+                (double)airspeed, (double)thr0, (double)roll0, (double)pitch0, (double)yaw0, (double)yaw6,
+                (double)pitch_motor_diff, (double)yaw_motor_diff,
+                (double)_actuator_outputs.output[0], (double)_actuator_outputs.output[1],
+                (double)_actuator_outputs.output[2], (double)_actuator_outputs.output[3],
+                (double)_actuator_outputs.output[4], (double)_actuator_outputs.output[5],
+                (double)_actuator_outputs.output[6], (double)_actuator_outputs.output[7]);
         }
 
     } else {
@@ -833,6 +931,7 @@ void pwm_mix_out::Run()
     _actuator_controls_0_sub.update(&_actuator_controls_0);
     _actuator_controls_1_sub.update(&_actuator_controls_1);
     _actuator_controls_6_sub.update(&_actuator_controls_6);
+    _airspeed_validated_sub.update(&_airspeed_validated);
     _vtol_vehicle_status_sub.update(&_vtol_vehicle_status);
     // Check throttle kill from uORB topic and parameter
     _throttle_kill_sub.update(&_throttle_kill);

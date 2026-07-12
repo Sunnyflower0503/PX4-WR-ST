@@ -1182,6 +1182,49 @@ PARAM_DEFINE_FLOAT(MIXER_THR_ELE_S, 0.2f);
 PARAM_DEFINE_FLOAT(MIXER_D_THR_LIM, 0.3f);
 
 /**
+ * Fixed-wing pitch motor differential gain
+ *
+ * Scales fixed-wing pitch control into front/rear main prop differential for
+ * TandemTailSitter low-airspeed fixed-wing operation.
+ *
+ * @group Mixer
+ * @min -1
+ * @max 1
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(FW_PMD_GAIN, 0.2f);
+
+/**
+ * Airspeed where fixed-wing pitch motor differential starts
+ *
+ * Above this airspeed, TandemTailSitter fixed-wing pitch motor differential is zero.
+ *
+ * @group Mixer
+ * @unit m/s
+ * @min 0
+ * @max 50
+ * @decimal 1
+ * @increment 0.5
+ */
+PARAM_DEFINE_FLOAT(FW_PMD_ASPD_ST, 15.0f);
+
+/**
+ * Airspeed where fixed-wing pitch motor differential is full
+ *
+ * At and below this airspeed, TandemTailSitter fixed-wing pitch motor differential
+ * uses the full FW_PMD_GAIN value.
+ *
+ * @group Mixer
+ * @unit m/s
+ * @min 0
+ * @max 50
+ * @decimal 1
+ * @increment 0.5
+ */
+PARAM_DEFINE_FLOAT(FW_PMD_ASPD_FULL, 8.0f);
+
+/**
  * Throttle Kill
  *
  * Set to 1 to force all motor outputs to disarmed value (900 us).

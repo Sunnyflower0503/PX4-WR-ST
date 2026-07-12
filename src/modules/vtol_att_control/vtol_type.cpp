@@ -86,36 +86,36 @@ bool VtolType::init()
 	int fd = px4_open(dev, 0);
 
 	if (fd < 0) {
-		PX4_ERR("can't open %s", dev);
-		return false;
-	}
+		PX4_WARN("can't open %s, using default PWM values", dev);
 
-	int ret = px4_ioctl(fd, PWM_SERVO_GET_MAX_PWM, (long unsigned int)&_max_mc_pwm_values);
-	_current_max_pwm_values = _max_mc_pwm_values;
+	} else {
+		int ret = px4_ioctl(fd, PWM_SERVO_GET_MAX_PWM, (long unsigned int)&_max_mc_pwm_values);
+		_current_max_pwm_values = _max_mc_pwm_values;
 
-	if (ret != PX4_OK) {
-		PX4_ERR("failed getting max values");
+		if (ret != PX4_OK) {
+			PX4_ERR("failed getting max values");
+			px4_close(fd);
+			return false;
+		}
+
+		ret = px4_ioctl(fd, PWM_SERVO_GET_MIN_PWM, (long unsigned int)&_min_mc_pwm_values);
+
+		if (ret != PX4_OK) {
+			PX4_ERR("failed getting min values");
+			px4_close(fd);
+			return false;
+		}
+
+		ret = px4_ioctl(fd, PWM_SERVO_GET_DISARMED_PWM, (long unsigned int)&_disarmed_pwm_values);
+
+		if (ret != PX4_OK) {
+			PX4_ERR("failed getting disarmed values");
+			px4_close(fd);
+			return false;
+		}
+
 		px4_close(fd);
-		return false;
 	}
-
-	ret = px4_ioctl(fd, PWM_SERVO_GET_MIN_PWM, (long unsigned int)&_min_mc_pwm_values);
-
-	if (ret != PX4_OK) {
-		PX4_ERR("failed getting min values");
-		px4_close(fd);
-		return false;
-	}
-
-	ret = px4_ioctl(fd, PWM_SERVO_GET_DISARMED_PWM, (long unsigned int)&_disarmed_pwm_values);
-
-	if (ret != PX4_OK) {
-		PX4_ERR("failed getting disarmed values");
-		px4_close(fd);
-		return false;
-	}
-
-	px4_close(fd);
 
 	_main_motor_channel_bitmap = generate_bitmap_from_channel_numbers(_params->vtol_motor_id);
 	_alternate_motor_channel_bitmap = generate_bitmap_from_channel_numbers(_params->fw_motors_off);
@@ -349,8 +349,8 @@ bool VtolType::apply_pwm_limits(struct pwm_output_values &pwm_values, pwm_limit_
 	int fd = px4_open(dev, 0);
 
 	if (fd < 0) {
-		PX4_WARN("can't open %s", dev);
-		return false;
+		PX4_DEBUG("can't open %s, skip pwm limit ioctl", dev);
+		return true;
 	}
 
 	int ret;
