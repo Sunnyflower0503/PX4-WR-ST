@@ -317,6 +317,7 @@ void Tailsitter::fill_actuator_outputs()
 	} else {
 		fw_out[actuator_controls_s::INDEX_ROLL]  = fw_in[actuator_controls_s::INDEX_ROLL];
 		fw_out[actuator_controls_s::INDEX_PITCH] = fw_in[actuator_controls_s::INDEX_PITCH];
+		fw_out[actuator_controls_s::INDEX_YAW]   = fw_in[actuator_controls_s::INDEX_YAW];
 	}
 
 	_actuators_out_0->timestamp_sample = _actuators_mc_in->timestamp_sample;

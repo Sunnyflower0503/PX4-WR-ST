@@ -340,6 +340,11 @@ VtolAttitudeControl::Run()
 		if (_vtol_type->init()) {
 			_initialized = true;
 
+			// Tailsitter (VT_TYPE=0): default to fixed-wing mode after boot
+			if (_params.vtol_type == 0) {
+				_transition_command = vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW;
+			}
+
 		} else {
 			exit_and_cleanup();
 			return;
@@ -451,7 +456,7 @@ VtolAttitudeControl::Run()
 
 		case mode::FIXED_WING:
 			// vehicle is in fw mode
-			_vtol_vehicle_status.vtol_in_rw_mode = false;
+			_vtol_vehicle_status.vtol_in_rw_mode = (_params.vtol_type == 0 && !_v_control_mode.flag_armed) ? true : false;
 			_vtol_vehicle_status.vtol_in_trans_mode = false;
 			_vtol_vehicle_status.in_transition_to_fw = false;
 

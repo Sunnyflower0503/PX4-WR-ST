@@ -607,56 +607,78 @@ void pwm_mix_out::mix_and_update_outputs()
         const float airspeed = PX4_ISFINITE(_airspeed_validated.true_airspeed_m_s) ?
             _airspeed_validated.true_airspeed_m_s : 0.0f;
         float pitch_motor_diff = 0.0f;
-        float yaw_motor_diff = 0.0f;
+        float thr_diff = 0.0f;
 
         if (fixed_wing_mode) {
-            const float aspd_start = _fw_pitch_motor_diff_aspd_start.get();
-            const float aspd_full = _fw_pitch_motor_diff_aspd_full.get();
-            const float aspd_span = math::max(fabsf(aspd_start - aspd_full), 0.1f);
-            const float low_aspd_weight = (aspd_start >= aspd_full) ?
-                math::constrain((aspd_start - airspeed) / aspd_span, 0.0f, 1.0f) :
-                math::constrain((aspd_full - airspeed) / aspd_span, 0.0f, 1.0f);
+                const float aspd_start = _fw_pitch_motor_diff_aspd_start.get();
+                const float aspd_full = _fw_pitch_motor_diff_aspd_full.get();
 
-            pitch_motor_diff = math::constrain(pitch0 * _fw_pitch_motor_diff_gain.get() * low_aspd_weight,
-                -thr_diff_limit, thr_diff_limit);
+                const float aspd_span = math::max(fabsf(aspd_start - aspd_full), 0.1f);
 
-            yaw_motor_diff = math::constrain(yaw0 * _thr_rud_sc.get(), -thr_diff_limit, thr_diff_limit);
-            const float right_front = math::constrain(thr0 + pitch_motor_diff - 0.5f * yaw_motor_diff,
-                param_fw_thr_idle, param_fw_thr_max);
-            const float left_rear = math::constrain(thr0 - pitch_motor_diff + 0.5f * yaw_motor_diff,
-                param_fw_thr_idle, param_fw_thr_max);
-            const float left_front = math::constrain(thr0 + pitch_motor_diff + 0.5f * yaw_motor_diff,
-                param_fw_thr_idle, param_fw_thr_max);
-            const float right_rear = math::constrain(thr0 - pitch_motor_diff - 0.5f * yaw_motor_diff,
-                param_fw_thr_idle, param_fw_thr_max);
+                const float low_aspd_weight = (aspd_start >= aspd_full) ?
+                    math::constrain((aspd_start - airspeed) / aspd_span, 0.0f, 1.0f) :
+                    math::constrain((aspd_full - airspeed) / aspd_span, 0.0f, 1.0f);
 
-            // MAIN1 right-front, MAIN2 left-rear, MAIN3 left-front, MAIN4 right-rear.
-            _actuator_outputs.output[0] = math::constrain(1000.f + right_front * 1000.f,
-                _pwm_main1_min.get(), _pwm_main1_max.get());
-            _actuator_outputs.output[1] = math::constrain(1000.f + left_rear * 1000.f,
-                _pwm_main2_min.get(), _pwm_main2_max.get());
-            _actuator_outputs.output[2] = math::constrain(1000.f + left_front * 1000.f,
-                _pwm_main3_min.get(), _pwm_main3_max.get());
-            _actuator_outputs.output[3] = math::constrain(1000.f + right_rear * 1000.f,
-                _pwm_main4_min.get(), _pwm_main4_max.get());
 
-            _actuator_outputs.output[4] = math::gradual3(
-                (-roll1 + pitch1) * 57.3f * _pitch_scale.get(),
-                _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(),
-                _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
-            _actuator_outputs.output[5] = math::gradual3(
-                (-roll1 - pitch1) * 57.3f * _pitch_scale.get(),
-                _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(),
-                _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
+                pitch_motor_diff = math::constrain(
+                    pitch1 * _fw_pitch_motor_diff_gain.get() * low_aspd_weight,
+                    -thr_diff_limit,
+                    thr_diff_limit);
 
-            _actuator_outputs.output[6] = _pwm_main7_min.get();
-            _actuator_outputs.output[7] = _pwm_main8_min.get();
+
+                // yaw thrust differential: left group (MAIN2+3) vs right group (MAIN1+4)
+                thr_diff = math::constrain(yaw1, -thr_diff_limit, thr_diff_limit);
+                float dt_right = math::constrain(thr0 + 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+                float dt_left  = math::constrain(thr0 - 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+
+                // prevent differential loss when one side saturates
+                if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
+                    dt_left = dt_right + 1.0f * thr_diff;
+                }
+
+                // MAIN1 right-front: front + right group
+                const float right_front = math::constrain(dt_right - pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                // MAIN3 left-front: front + left group
+                const float left_front  = math::constrain(dt_left  - pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                // MAIN2 left-rear: rear + left group
+                const float left_rear   = math::constrain(dt_left  + pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                // MAIN4 right-rear: rear + right group
+                const float right_rear  = math::constrain(dt_right + pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+
+                _actuator_outputs.output[0] = math::constrain(1000.f + right_front * 1000.f,
+                    _pwm_main1_min.get(), _pwm_main1_max.get());
+                _actuator_outputs.output[2] = math::constrain(1000.f + left_front  * 1000.f,
+                    _pwm_main3_min.get(), _pwm_main3_max.get());
+                _actuator_outputs.output[1] = math::constrain(1000.f + left_rear   * 1000.f,
+                    _pwm_main2_min.get(), _pwm_main2_max.get());
+                _actuator_outputs.output[3] = math::constrain(1000.f + right_rear  * 1000.f,
+                    _pwm_main4_min.get(), _pwm_main4_max.get());
+
+                const float left_elevon = pitch1 + roll1;
+                const float right_elevon = pitch1 - roll1;
+
+                _actuator_outputs.output[4] =
+                    math::gradual3(left_elevon * 57.3f * _pitch_scale.get(),
+                        _pwm_main5_min_x.get(), 0.f, _pwm_main5_max_x.get(),
+                        _pwm_main5_min.get(), _pwm_main5_trim.get(), _pwm_main5_max.get());
+                _actuator_outputs.output[5] =
+                    math::gradual3(right_elevon * 57.3f * _pitch_scale.get(),
+                        _pwm_main6_min_x.get(), 0.f, _pwm_main6_max_x.get(),
+                        _pwm_main6_min.get(), _pwm_main6_trim.get(), _pwm_main6_max.get());
+
+                _actuator_outputs.output[6] = _pwm_main7_min.get();
+                _actuator_outputs.output[7] = _pwm_main8_min.get();
 
         } else {
-            const float motor1 = math::constrain(thr0 - 0.707107f * roll0 + 0.707107f * pitch0, 0.0f, 1.0f);
-            const float motor2 = math::constrain(thr0 + 0.707107f * roll0 - 0.707107f * pitch0, 0.0f, 1.0f);
-            const float motor3 = math::constrain(thr0 + 0.707107f * roll0 + 0.707107f * pitch0, 0.0f, 1.0f);
-            const float motor4 = math::constrain(thr0 - 0.707107f * roll0 - 0.707107f * pitch0, 0.0f, 1.0f);
+            /*
+             * 原13020 mixer: R: 4x 使用 quad-X 布局 (0.707107 系数).
+             * 修改点: Tandem 不是 X quad, 而是矩形 Tandem 布局.
+             * pitch0 控制前后差动, roll0 控制左右差动, yaw0 不用于 MAIN1-4 (由 MAIN7-8 的 yaw6 处理).
+             */
+            const float motor1 = math::constrain(thr0 + pitch0 + roll0, 0.0f, 1.0f);  // MAIN1 right-front
+            const float motor2 = math::constrain(thr0 - pitch0 - roll0, 0.0f, 1.0f);  // MAIN2 left-rear
+            const float motor3 = math::constrain(thr0 + pitch0 - roll0, 0.0f, 1.0f);  // MAIN3 left-front
+            const float motor4 = math::constrain(thr0 - pitch0 + roll0, 0.0f, 1.0f);  // MAIN4 right-rear
 
             _actuator_outputs.output[0] = math::constrain(1000.f + motor1 * 1000.f,
                 _pwm_main1_min.get(), _pwm_main1_max.get());
@@ -680,11 +702,11 @@ void pwm_mix_out::mix_and_update_outputs()
         }
 
         if (_count % 100 == 0) {
-            PX4_INFO("Tandem mix mode=%s aspd=%4.1f thr0=%4.2f r0=%4.2f p0=%4.2f y0=%4.2f y6=%4.2f pmd=%4.2f ymd=%4.2f "
+            PX4_INFO("Tandem mix mode=%s aspd=%4.1f thr0=%4.2f r1=%4.2f p1=%4.2f y1=%4.2f y6=%4.2f pmd=%4.2f td=%4.2f "
                 "out=%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f",
                 fixed_wing_mode ? "FW" : "MC",
                 (double)airspeed, (double)thr0, (double)roll0, (double)pitch0, (double)yaw0, (double)yaw6,
-                (double)pitch_motor_diff, (double)yaw_motor_diff,
+                (double)pitch_motor_diff, (double)thr_diff,
                 (double)_actuator_outputs.output[0], (double)_actuator_outputs.output[1],
                 (double)_actuator_outputs.output[2], (double)_actuator_outputs.output[3],
                 (double)_actuator_outputs.output[4], (double)_actuator_outputs.output[5],

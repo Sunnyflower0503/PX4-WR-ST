@@ -83,22 +83,12 @@ private:
 			msg.pitchspeed = angular_velocity.xyz[1];
 			msg.yawspeed = angular_velocity.xyz[2];
 
-			if (status.is_vtol && status.is_vtol_tailsitter && (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)) {
-				// This is a tailsitter VTOL flying in fixed wing mode:
-				// indicate that reported attitude should be rotated by
-				// 90 degrees upward pitch for user display
-				get_rot_quaternion(ROTATION_PITCH_90).copyTo(msg.repr_offset_q);
-
-			} else {
-				// Normal case
-				// zero rotation should be [1 0 0 0]:
-				// `get_rot_quaternion(ROTATION_NONE).copyTo(msg.repr_offset_q);`
-				// but to save bandwidth, we instead send [0, 0, 0, 0].
-				msg.repr_offset_q[0] = 0.0f;
-				msg.repr_offset_q[1] = 0.0f;
-				msg.repr_offset_q[2] = 0.0f;
-				msg.repr_offset_q[3] = 0.0f;
-			}
+			// No display rotation — vehicle_attitude already carries the physical body-frame attitude.
+			// Zero quaternion [0, 0, 0, 0] tells the GCS to render the attitude as-is.
+			msg.repr_offset_q[0] = 0.0f;
+			msg.repr_offset_q[1] = 0.0f;
+			msg.repr_offset_q[2] = 0.0f;
+			msg.repr_offset_q[3] = 0.0f;
 
 			mavlink_msg_attitude_quaternion_send_struct(_mavlink->get_channel(), &msg);
 
