@@ -298,7 +298,11 @@ MulticopterAttitudeControl::Run()
 
 		if (run_att_ctrl) {
 
-			const Quatf q{v_att.q};
+			Quatf q{v_att.q};
+
+			if (_vtol_tailsitter && (is_hovering || is_tailsitter_transition)) {
+				q = q * Quatf(Eulerf(0.0f, -M_PI_2_F, 0.0f));
+			}
 
 			// Generate the attitude setpoint from stick inputs if we are in Manual/Stabilized mode
 			if (_v_control_mode.flag_control_manual_enabled &&

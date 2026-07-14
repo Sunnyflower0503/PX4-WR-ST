@@ -65,10 +65,12 @@ private:
 
 	struct {
 		float fw_pitch_sp_offset;
+		float front_trans_pitch;
 	} _params_tailsitter{};
 
 	struct {
 		param_t fw_pitch_sp_offset;
+		param_t front_trans_pitch;
 	} _params_handles_tailsitter{};
 
 	enum class vtol_mode {

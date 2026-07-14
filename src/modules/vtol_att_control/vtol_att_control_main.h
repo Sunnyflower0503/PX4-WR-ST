@@ -66,6 +66,7 @@
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/airspeed_validated.h>
+#include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/manual_control_switches.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/position_setpoint_triplet.h>
@@ -145,6 +146,7 @@ private:
 	uORB::Subscription _land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _local_pos_sp_sub{ORB_ID(vehicle_local_position_setpoint)};			// setpoint subscription
 	uORB::Subscription _local_pos_sub{ORB_ID(vehicle_local_position)};			// sensor subscription
+	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Subscription _manual_control_switches_sub{ORB_ID(manual_control_switches)};	//manual control setpoint subscription
 	uORB::Subscription _mc_virtual_att_sp_sub{ORB_ID(mc_virtual_attitude_setpoint)};
 	uORB::Subscription _pos_sp_triplet_sub{ORB_ID(position_setpoint_triplet)};			// local position setpoint subscription
@@ -173,6 +175,7 @@ private:
 	actuator_controls_s			_actuators_6{};
 
 	airspeed_validated_s 				_airspeed_validated{};			// airspeed
+	manual_control_setpoint_s		_manual_control_setpoint{};
 	manual_control_switches_s		_manual_control_switches{}; //manual control setpoint
 	position_setpoint_triplet_s		_pos_sp_triplet{};
 	tecs_status_s				_tecs_status{};
@@ -219,6 +222,7 @@ private:
 		param_t mpc_land_alt1;
 		param_t mpc_land_alt2;
 		param_t diff_thrust_roll_scale;
+		param_t tandem_mc_direct_en;
 	} _params_handles{};
 
 	hrt_abstime _last_run_timestamp{0};

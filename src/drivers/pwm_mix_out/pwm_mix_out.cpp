@@ -46,7 +46,8 @@ pwm_mix_out::pwm_mix_out() :
 
     update_params();
 
-    _VEHICLE_ID = _vehicle_id.get();
+    _VEHICLE_ID = (_sys_autostart.get() == 13020) ?
+        vehicle_id_e::TandemTailSitter : _vehicle_id.get();
     _vtol_vehicle_status.vtol_in_rw_mode = true;
 
     _pwm_default_rate = 50;
@@ -637,13 +638,13 @@ void pwm_mix_out::mix_and_update_outputs()
                 }
 
                 // MAIN1 right-front: front + right group
-                const float right_front = math::constrain(dt_right - pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                const float right_front = math::constrain(dt_right + pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
                 // MAIN3 left-front: front + left group
-                const float left_front  = math::constrain(dt_left  - pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                const float left_front  = math::constrain(dt_left  + pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
                 // MAIN2 left-rear: rear + left group
-                const float left_rear   = math::constrain(dt_left  + pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                const float left_rear   = math::constrain(dt_left  - pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
                 // MAIN4 right-rear: rear + right group
-                const float right_rear  = math::constrain(dt_right + pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
+                const float right_rear  = math::constrain(dt_right - pitch_motor_diff, param_fw_thr_idle, param_fw_thr_max);
 
                 _actuator_outputs.output[0] = math::constrain(1000.f + right_front * 1000.f,
                     _pwm_main1_min.get(), _pwm_main1_max.get());
@@ -654,8 +655,10 @@ void pwm_mix_out::mix_and_update_outputs()
                 _actuator_outputs.output[3] = math::constrain(1000.f + right_rear  * 1000.f,
                     _pwm_main4_min.get(), _pwm_main4_max.get());
 
-                const float left_elevon = pitch1 + roll1;
-                const float right_elevon = pitch1 - roll1;
+                const bool fw_attitude_elevon_mode = _vehicle_control_mode.flag_control_attitude_enabled;
+                const float elevon_pitch = fw_attitude_elevon_mode ? pitch1 : pitch1;
+                const float left_elevon = elevon_pitch - roll1;
+                const float right_elevon = elevon_pitch + roll1;
 
                 _actuator_outputs.output[4] =
                     math::gradual3(left_elevon * 57.3f * _pitch_scale.get(),
@@ -675,10 +678,10 @@ void pwm_mix_out::mix_and_update_outputs()
              * 修改点: Tandem 不是 X quad, 而是矩形 Tandem 布局.
              * pitch0 控制前后差动, roll0 控制左右差动, yaw0 不用于 MAIN1-4 (由 MAIN7-8 的 yaw6 处理).
              */
-            const float motor1 = math::constrain(thr0 + pitch0 + roll0, 0.0f, 1.0f);  // MAIN1 right-front
-            const float motor2 = math::constrain(thr0 - pitch0 - roll0, 0.0f, 1.0f);  // MAIN2 left-rear
-            const float motor3 = math::constrain(thr0 + pitch0 - roll0, 0.0f, 1.0f);  // MAIN3 left-front
-            const float motor4 = math::constrain(thr0 - pitch0 + roll0, 0.0f, 1.0f);  // MAIN4 right-rear
+            const float motor1 = math::constrain(thr0 + 0.707107f * pitch0 - 0.707107f * roll0, 0.0f, 1.0f);  // MAIN1 right-front
+            const float motor2 = math::constrain(thr0 - 0.707107f * pitch0 + 0.707107f * roll0, 0.0f, 1.0f);  // MAIN2 left-rear
+            const float motor3 = math::constrain(thr0 + 0.707107f * pitch0 + 0.707107f * roll0, 0.0f, 1.0f);  // MAIN3 left-front
+            const float motor4 = math::constrain(thr0 - 0.707107f * pitch0 - 0.707107f * roll0, 0.0f, 1.0f);  // MAIN4 right-rear
 
             _actuator_outputs.output[0] = math::constrain(1000.f + motor1 * 1000.f,
                 _pwm_main1_min.get(), _pwm_main1_max.get());
@@ -692,12 +695,15 @@ void pwm_mix_out::mix_and_update_outputs()
             _actuator_outputs.output[4] = _pwm_main5_trim.get();
             _actuator_outputs.output[5] = _pwm_main6_trim.get();
 
-            const float tip_idle = 1300.0f;
+            const float tip_idle = 1000.0f;
             const float yaw_gain = 1000.0f * _yaw_scale.get();
+            const bool direct_manual_yaw = (_td_mc_direct_en.get() == 1) &&
+                _vehicle_control_mode.flag_control_manual_enabled;
+            const float tip_yaw = direct_manual_yaw ? _manual_control_setpoint.r : yaw6;
 
-            _actuator_outputs.output[6] = math::constrain(tip_idle + yaw_gain * yaw6,
+            _actuator_outputs.output[6] = math::constrain(tip_idle + yaw_gain * tip_yaw,
                 _pwm_main7_min.get(), _pwm_main7_max.get());
-            _actuator_outputs.output[7] = math::constrain(tip_idle - yaw_gain * yaw6,
+            _actuator_outputs.output[7] = math::constrain(tip_idle - yaw_gain * tip_yaw,
                 _pwm_main8_min.get(), _pwm_main8_max.get());
         }
 
@@ -862,6 +868,8 @@ void pwm_mix_out::Run()
 
             // update parameters from storage
              update_params(); // do not update PWM params for now (was interfering with VTOL PWM settings)
+             _VEHICLE_ID = (_sys_autostart.get() == 13020) ?
+                 vehicle_id_e::TandemTailSitter : _vehicle_id.get();
     }
 
 
@@ -954,6 +962,8 @@ void pwm_mix_out::Run()
     _actuator_controls_1_sub.update(&_actuator_controls_1);
     _actuator_controls_6_sub.update(&_actuator_controls_6);
     _airspeed_validated_sub.update(&_airspeed_validated);
+    _manual_control_setpoint_sub.update(&_manual_control_setpoint);
+    _vehicle_control_mode_sub.update(&_vehicle_control_mode);
     _vtol_vehicle_status_sub.update(&_vtol_vehicle_status);
     // Check throttle kill from uORB topic and parameter
     _throttle_kill_sub.update(&_throttle_kill);

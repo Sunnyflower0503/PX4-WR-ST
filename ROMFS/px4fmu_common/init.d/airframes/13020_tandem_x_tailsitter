@@ -22,6 +22,7 @@ param set-default VT_IDLE_PWM_MC  1080
 param set-default VT_TYPE 0
 param set-default VT_ELEV_MC_LOCK 1
 param set-default COM_VEHICLE_ID 10
+param set-default SENS_BOARD_ROT 24
 set MAV_TYPE 20
 
 # set MIXER TANDEM_x_vtol

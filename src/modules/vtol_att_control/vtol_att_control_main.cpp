@@ -99,6 +99,7 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	_params_handles.vt_forward_thrust_enable_mode = param_find("VT_FWD_THRUST_EN");
 	_params_handles.mpc_land_alt1 = param_find("MPC_LAND_ALT1");
 	_params_handles.mpc_land_alt2 = param_find("MPC_LAND_ALT2");
+	_params_handles.tandem_mc_direct_en = param_find("TD_MC_DIRECT_EN");
 
 	_params_handles.down_pitch_max = param_find("VT_DWN_PITCH_MAX");
 	_params_handles.forward_thrust_scale = param_find("VT_FWD_THRUST_SC");
@@ -302,6 +303,8 @@ VtolAttitudeControl::parameters_update()
 	param_get(_params_handles.vt_forward_thrust_enable_mode, &_params.vt_forward_thrust_enable_mode);
 	param_get(_params_handles.mpc_land_alt1, &_params.mpc_land_alt1);
 	param_get(_params_handles.mpc_land_alt2, &_params.mpc_land_alt2);
+	param_get(_params_handles.tandem_mc_direct_en, &l);
+	_params.tandem_mc_direct_en = (l == 1);
 
 	// update the parameters of the instances of base VtolType
 	if (_vtol_type != nullptr) {
@@ -340,8 +343,7 @@ VtolAttitudeControl::Run()
 		if (_vtol_type->init()) {
 			_initialized = true;
 
-			// Tailsitter (VT_TYPE=0): default to fixed-wing mode after boot
-			if (_params.vtol_type == 0) {
+			if (static_cast<vtol_type>(_params.vtol_type) == vtol_type::TAILSITTER) {
 				_transition_command = vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW;
 			}
 
@@ -386,6 +388,7 @@ VtolAttitudeControl::Run()
 		}
 
 		_v_control_mode_sub.update(&_v_control_mode);
+		_manual_control_setpoint_sub.update(&_manual_control_setpoint);
 		_manual_control_switches_sub.update(&_manual_control_switches);
 		_v_att_sub.update(&_v_att);
 		_local_pos_sub.update(&_local_pos);
@@ -422,6 +425,8 @@ VtolAttitudeControl::Run()
 
 
 		// check in which mode we are in and call mode specific functions
+		bool tandem_mc_direct = false;
+
 		switch (_vtol_type->get_mode()) {
 		case mode::TRANSITION_TO_FW:
 		case mode::TRANSITION_TO_MC:
@@ -437,7 +442,9 @@ VtolAttitudeControl::Run()
 				_v_att_sp_pub.publish(_v_att_sp);
 			}
 
-			_actuators_6 = _actuators_out_0;
+			_actuators_6 = {};
+			_actuators_6.timestamp_sample = _actuators_out_0.timestamp_sample;
+			_actuators_6.control[actuator_controls_s::INDEX_YAW] = _actuators_out_0.control[actuator_controls_s::INDEX_YAW];
 			_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
 			break;
 
@@ -450,13 +457,26 @@ VtolAttitudeControl::Run()
 			_vtol_type->update_mc_state();
 			_v_att_sp_pub.publish(_v_att_sp);
 
-			_actuators_6 = _actuators_out_0;
-			_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
+			tandem_mc_direct = _params.tandem_mc_direct_en
+					   && static_cast<vtol_type>(_params.vtol_type) == vtol_type::TAILSITTER
+					   && _v_control_mode.flag_control_manual_enabled;
+
+			_actuators_6 = {};
+
+			if (tandem_mc_direct) {
+				_actuators_6.timestamp_sample = hrt_absolute_time();
+				_actuators_6.control[actuator_controls_s::INDEX_YAW] = _manual_control_setpoint.r;
+
+			} else {
+				_actuators_6.timestamp_sample = _actuators_out_0.timestamp_sample;
+				_actuators_6.control[actuator_controls_s::INDEX_YAW] = _actuators_out_0.control[actuator_controls_s::INDEX_YAW];
+				_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
+			}
 			break;
 
 		case mode::FIXED_WING:
 			// vehicle is in fw mode
-			_vtol_vehicle_status.vtol_in_rw_mode = (_params.vtol_type == 0 && !_v_control_mode.flag_armed) ? true : false;
+			_vtol_vehicle_status.vtol_in_rw_mode = false;
 			_vtol_vehicle_status.vtol_in_trans_mode = false;
 			_vtol_vehicle_status.in_transition_to_fw = false;
 
@@ -465,16 +485,33 @@ VtolAttitudeControl::Run()
 				_v_att_sp_pub.publish(_v_att_sp);
 			}
 
-			_actuators_6 = _actuators_out_1;
-			_actuators_6.control[actuator_controls_s::INDEX_YAW] = 0.0f;
-			_actuators_6.control[actuator_controls_s::INDEX_ROLL] =
-				_actuators_6.control[actuator_controls_s::INDEX_ROLL] * _params.diff_thrust_roll_scale;
+			_actuators_6 = {};
+			_actuators_6.timestamp_sample = _actuators_out_1.timestamp_sample;
 			break;
 		}
 
-		_actuators_6.control[actuator_controls_s::INDEX_THROTTLE] = 0.6f;
-		_actuators_6_pub.publish(_actuators_6);
+		_actuators_6.timestamp = hrt_absolute_time();
 		_vtol_type->fill_actuator_outputs();
+
+		if (tandem_mc_direct) {
+			_actuators_6 = {};
+			_actuators_6.timestamp = hrt_absolute_time();
+			_actuators_6.timestamp_sample = _actuators_6.timestamp;
+			_actuators_6.control[actuator_controls_s::INDEX_YAW] = _manual_control_setpoint.r;
+
+			_actuators_out_0 = {};
+			_actuators_out_0.timestamp_sample = _actuators_6.timestamp_sample;
+			_actuators_out_0.control[actuator_controls_s::INDEX_ROLL] = _manual_control_setpoint.y;
+			_actuators_out_0.control[actuator_controls_s::INDEX_PITCH] = -_manual_control_setpoint.x;
+			_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
+			_actuators_out_0.control[actuator_controls_s::INDEX_THROTTLE] =
+				math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f);
+
+			_actuators_out_1 = {};
+			_actuators_out_1.timestamp_sample = _actuators_out_0.timestamp_sample;
+		}
+
+		_actuators_6_pub.publish(_actuators_6);
 		_actuators_0_pub.publish(_actuators_out_0);
 		_actuators_1_pub.publish(_actuators_out_1);
 

@@ -80,6 +80,7 @@ struct Params {
 	float mpc_land_alt1;
 	float mpc_land_alt2;
 	float diff_thrust_roll_scale;
+	bool tandem_mc_direct_en;
 };
 
 // Has to match 1:1 msg/vtol_vehicle_status.msg

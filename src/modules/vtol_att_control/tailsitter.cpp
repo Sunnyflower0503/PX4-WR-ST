@@ -42,7 +42,6 @@
 #include "tailsitter.h"
 #include "vtol_att_control_main.h"
 
-#define PITCH_TRANSITION_FRONT_P1 -1.1f	// pitch angle to switch to TRANSITION_P2
 #define PITCH_TRANSITION_BACK -0.25f	// pitch angle to switch to MC
 
 using namespace matrix;
@@ -50,15 +49,17 @@ using namespace matrix;
 Tailsitter::Tailsitter(VtolAttitudeControl *attc) :
 	VtolType(attc)
 {
-	_vtol_schedule.flight_mode = vtol_mode::MC_MODE;
+	_vtol_schedule.flight_mode = vtol_mode::FW_MODE;
 	_vtol_schedule.transition_start = 0;
+	_vtol_mode = mode::FIXED_WING;
 
-	_mc_roll_weight = 1.0f;
-	_mc_pitch_weight = 1.0f;
-	_mc_yaw_weight = 1.0f;
+	_mc_roll_weight = 0.0f;
+	_mc_pitch_weight = 0.0f;
+	_mc_yaw_weight = 0.0f;
 
 	_flag_was_in_trans_mode = false;
 	_params_handles_tailsitter.fw_pitch_sp_offset = param_find("FW_PSP_OFF");
+	_params_handles_tailsitter.front_trans_pitch = param_find("VT_TS_TRANS_P");
 }
 
 void
@@ -68,6 +69,9 @@ Tailsitter::parameters_update()
 
 	param_get(_params_handles_tailsitter.fw_pitch_sp_offset, &v);
 	_params_tailsitter.fw_pitch_sp_offset = math::radians(v);
+
+	param_get(_params_handles_tailsitter.front_trans_pitch, &v);
+	_params_tailsitter.front_trans_pitch = v;
 }
 
 void Tailsitter::update_vtol_state()
@@ -136,7 +140,7 @@ void Tailsitter::update_vtol_state()
 
 				bool transition_to_fw = false;
 
-				if (pitch <= PITCH_TRANSITION_FRONT_P1) {
+				if (pitch <= _params_tailsitter.front_trans_pitch) {
 					if (airspeed_triggers_transition) {
 						transition_to_fw = _airspeed_validated->calibrated_airspeed_m_s >= _params->transition_airspeed;
 

@@ -217,7 +217,11 @@ void
 FixedwingAttitudeControl::vehicle_rates_setpoint_poll()
 {
 	if (_rates_sp_sub.update(&_rates_sp)) {
-		if (_is_tailsitter) {
+		const bool adapt_tailsitter_attitude = _is_tailsitter
+						       && (_vehicle_status.in_transition_mode
+							   || _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
+
+		if (adapt_tailsitter_attitude) {
 			float tmp = _rates_sp.roll;
 			_rates_sp.roll = -_rates_sp.yaw;
 			_rates_sp.yaw = tmp;
@@ -371,7 +375,11 @@ void FixedwingAttitudeControl::Run()
 		float pitchspeed = angular_velocity.xyz[1];
 		float yawspeed = angular_velocity.xyz[2];
 
-		if (_is_tailsitter) {
+		const bool adapt_tailsitter_attitude_feedback = _is_tailsitter
+				&& (_vehicle_status.in_transition_mode
+				    || _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
+
+		if (adapt_tailsitter_attitude_feedback) {
 			/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
 			 *
 			 * Since the VTOL airframe is initialized as a multicopter we need to

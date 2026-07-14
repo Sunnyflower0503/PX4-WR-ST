@@ -60,9 +60,11 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/airspeed_validated.h>
+#include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/throttle_kill.h>
+#include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vtol_vehicle_status.h>
 #include <px4_platform_common/module_params.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
@@ -150,6 +152,8 @@ private:
     uORB::Subscription _actuator_controls_1_sub{ORB_ID(actuator_controls_1)};
     uORB::Subscription _actuator_controls_6_sub{ORB_ID(actuator_controls_6)};
     uORB::Subscription _airspeed_validated_sub{ORB_ID(airspeed_validated)};
+    uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+    uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
     uORB::Subscription _vtol_vehicle_status_sub{ORB_ID(vtol_vehicle_status)};
     uORB::SubscriptionCallbackWorkItem _control_subs[actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS] {
                 {this, ORB_ID(actuator_controls_0), 0},
@@ -205,6 +209,8 @@ private:
     actuator_controls_s _actuator_controls_1{};
     actuator_controls_s _actuator_controls_6{};
     airspeed_validated_s _airspeed_validated{};
+    manual_control_setpoint_s _manual_control_setpoint{};
+    vehicle_control_mode_s _vehicle_control_mode{};
     vtol_vehicle_status_s _vtol_vehicle_status{};
 
     actuator_controls_s _actuator_controls_dsc{};
@@ -332,7 +338,9 @@ private:
         (ParamFloat<px4::params::MIXER_THR_KILL_T>) _thr_kill_t,
 
         (ParamInt<px4::params::VT_ELEV_MC_LOCK>) _vt_elev_mc_lock,
-        (ParamInt<px4::params::COM_VEHICLE_ID>) _vehicle_id
+        (ParamInt<px4::params::COM_VEHICLE_ID>) _vehicle_id,
+        (ParamInt<px4::params::SYS_AUTOSTART>) _sys_autostart,
+        (ParamInt<px4::params::TD_MC_DIRECT_EN>) _td_mc_direct_en
 
     );
 

@@ -40,6 +40,21 @@
  */
 
 /**
+ * Tailsitter front transition pitch threshold
+ *
+ * Pitch angle at which the tailsitter front transition can complete and switch
+ * to fixed-wing mode. This matches the previous hard-coded threshold by default.
+ *
+ * @unit rad
+ * @min -1.57
+ * @max 1.57
+ * @increment 0.01
+ * @decimal 3
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(VT_TS_TRANS_P, -1.1f);
+
+/**
  * Duration of front transition phase 2
  *
  * Time in seconds it should take for the rotors to rotate forward completely from the point

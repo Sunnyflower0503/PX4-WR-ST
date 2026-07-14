@@ -87,6 +87,18 @@ PARAM_DEFINE_INT32(VT_TYPE, 0);
 PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
 
 /**
+ * Tandem tailsitter direct MC manual debug
+ *
+ * If enabled for a tailsitter in rotary-wing manual mode, bypass the MC
+ * attitude/rate controller outputs and map manual sticks directly to
+ * actuator control groups for mixer direction checks.
+ *
+ * @boolean
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(TD_MC_DIRECT_EN, 0);
+
+/**
  * Duration of a front transition
  *
  * Time in seconds used for a transition
