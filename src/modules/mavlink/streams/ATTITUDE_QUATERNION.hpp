@@ -37,6 +37,7 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vtol_vehicle_status.h>
 
 class MavlinkStreamAttitudeQuaternion : public MavlinkStream
 {
@@ -60,6 +61,7 @@ private:
 	uORB::Subscription _att_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
 	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _vtol_status_sub{ORB_ID(vtol_vehicle_status)};
 
 	bool send() override
 	{
@@ -71,20 +73,29 @@ private:
 
 			vehicle_status_s status{};
 			_status_sub.copy(&status);
+			vtol_vehicle_status_s vtol_status{};
+			_vtol_status_sub.copy(&vtol_status);
 
 			mavlink_attitude_quaternion_t msg{};
+			matrix::Quatf q{att.q};
+
+			// QGC needs the MC frame for a tailsitter in rotary-wing mode.
+			// Keep vehicle_attitude itself unchanged for EKF and controllers.
+			if (status.is_vtol_tailsitter && vtol_status.vtol_in_rw_mode) {
+				q = q * matrix::Quatf(matrix::Eulerf(0.0f, -M_PI_2_F, 0.0f));
+			}
 
 			msg.time_boot_ms = att.timestamp / 1000;
-			msg.q1 = att.q[0];
-			msg.q2 = att.q[1];
-			msg.q3 = att.q[2];
-			msg.q4 = att.q[3];
+			msg.q1 = q(0);
+			msg.q2 = q(1);
+			msg.q3 = q(2);
+			msg.q4 = q(3);
 			msg.rollspeed = angular_velocity.xyz[0];
 			msg.pitchspeed = angular_velocity.xyz[1];
 			msg.yawspeed = angular_velocity.xyz[2];
 
-			// No display rotation — vehicle_attitude already carries the physical body-frame attitude.
-			// Zero quaternion [0, 0, 0, 0] tells the GCS to render the attitude as-is.
+			// The quaternion above is a display-only representation. Keep the
+			// representation offset empty so the GCS does not apply another rotation.
 			msg.repr_offset_q[0] = 0.0f;
 			msg.repr_offset_q[1] = 0.0f;
 			msg.repr_offset_q[2] = 0.0f;

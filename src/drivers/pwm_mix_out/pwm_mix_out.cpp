@@ -701,9 +701,9 @@ void pwm_mix_out::mix_and_update_outputs()
                 _vehicle_control_mode.flag_control_manual_enabled;
             const float tip_yaw = direct_manual_yaw ? _manual_control_setpoint.r : yaw6;
 
-            _actuator_outputs.output[6] = math::constrain(tip_idle + yaw_gain * tip_yaw,
+            _actuator_outputs.output[6] = math::constrain(tip_idle - yaw_gain * tip_yaw,
                 _pwm_main7_min.get(), _pwm_main7_max.get());
-            _actuator_outputs.output[7] = math::constrain(tip_idle - yaw_gain * tip_yaw,
+            _actuator_outputs.output[7] = math::constrain(tip_idle + yaw_gain * tip_yaw,
                 _pwm_main8_min.get(), _pwm_main8_max.get());
         }
 

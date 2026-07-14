@@ -36,6 +36,8 @@
 
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
+#include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vtol_vehicle_status.h>
 
 class MavlinkStreamAttitude : public MavlinkStream
 {
@@ -58,6 +60,8 @@ private:
 
 	uORB::Subscription _att_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
+	uORB::Subscription _status_sub{ORB_ID(vehicle_status)};
+	uORB::Subscription _vtol_status_sub{ORB_ID(vtol_vehicle_status)};
 
 	bool send() override
 	{
@@ -66,10 +70,22 @@ private:
 		if (_att_sub.update(&att)) {
 			vehicle_angular_velocity_s angular_velocity{};
 			_angular_velocity_sub.copy(&angular_velocity);
+			vtol_vehicle_status_s vtol_status{};
+			_vtol_status_sub.copy(&vtol_status);
+			vehicle_status_s vehicle_status{};
+			_status_sub.copy(&vehicle_status);
 
 			mavlink_attitude_t msg{};
 
-			const matrix::Eulerf euler = matrix::Quatf(att.q);
+			matrix::Quatf q{att.q};
+
+			// QGC needs the MC frame for a tailsitter in rotary-wing mode.
+			// Keep vehicle_attitude itself unchanged for EKF and controllers.
+			if (vehicle_status.is_vtol_tailsitter && vtol_status.vtol_in_rw_mode) {
+				q = q * matrix::Quatf(matrix::Eulerf(0.0f, -M_PI_2_F, 0.0f));
+			}
+
+			const matrix::Eulerf euler = q;
 			msg.time_boot_ms = att.timestamp / 1000;
 			msg.roll = euler.phi();
 			msg.pitch = euler.theta();
