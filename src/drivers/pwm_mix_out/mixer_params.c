@@ -1225,6 +1225,163 @@ PARAM_DEFINE_FLOAT(FW_PMD_ASPD_ST, 15.0f);
 PARAM_DEFINE_FLOAT(FW_PMD_ASPD_FULL, 8.0f);
 
 /**
+ * Tandem tailsitter wingtip propeller idle PWM in rotary-wing mode
+ *
+ * Sets the neutral PWM for MAIN7/MAIN8 wingtip propellers when TandemTailSitter
+ * is in rotary-wing mode. Increase this for high-speed wingtip propellers if
+ * low-RPM yaw authority is insufficient.
+ *
+ * @group Mixer
+ * @unit us
+ * @min 1000
+ * @max 1800
+ * @decimal 0
+ * @increment 10
+ */
+PARAM_DEFINE_FLOAT(TD_TIP_IDLE_PWM, 1300.0f);
+
+/**
+ * Tailsitter wingtip thrust pitch feedforward
+ *
+ * Adds pitch differential to the main propellers according to the wingtip
+ * propellers' total thrust above idle. Use the sign to select the correction
+ * direction. A value of zero disables the compensation.
+ *
+ * @min -1.0
+ * @max 1.0
+ * @decimal 3
+ * @increment 0.01
+ * @group Mixer
+ */
+PARAM_DEFINE_FLOAT(TD_TIP_P_FF, 0.0f);
+
+/**
+ * Tailsitter wingtip X-Z inertia-coupling feedforward
+ *
+ * Adds a synchronized main-propeller left-right differential from the actual
+ * normalized MAIN7/MAIN8 wingtip differential. This compensates the physical
+ * Z-axis moment induced while commanding thrust-axis spin on aircraft with a
+ * non-zero X-Z product of inertia. A value of zero disables the compensation.
+ *
+ * @min -0.20
+ * @max 0.20
+ * @decimal 4
+ * @increment 0.005
+ * @group Mixer
+ */
+PARAM_DEFINE_FLOAT(TD_TIP_XZ_FF, 0.0f);
+
+/**
+ * Main-rotor spin X-Z decoupling feedforward
+ *
+ * Adds physical-Z main-rotor differential proportional to the main-rotor
+ * thrust-axis spin command. This compensates products-of-inertia coupling.
+ * Zero preserves the legacy mixer behavior.
+ *
+ * @min -0.10
+ * @max 0.10
+ * @decimal 4
+ * @increment 0.001
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(TD_MAIN_XZ_FF, 0.0f);
+
+/**
+ * Main-rotor lateral X-Z decoupling feedforward
+ *
+ * Adds thrust-axis main-rotor differential proportional to the physical-Z
+ * lateral-tilt command. This is the reciprocal compensation to
+ * TD_MAIN_XZ_FF for aircraft with a non-zero X-Z product of inertia.
+ * Zero preserves the legacy mixer behavior.
+ *
+ * @min -10.0
+ * @max 10.0
+ * @decimal 3
+ * @increment 0.1
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(TD_ZX_MAIN_FF, 0.0f);
+
+/**
+ * Tandem tailsitter MC debug: pitch axis (fore-aft tilt)
+ *
+ * Enables and sets direction of the Tandem rectangular-layout pitch differential
+ * in rotary-wing mode. pitch0 works on MAIN1+MAIN3 (front) versus MAIN2+MAIN4 (rear).
+ *
+ * @group Mixer
+ * @min -1
+ * @max 1
+ * @decimal 0
+ * @value -1 Reverse direction
+ * @value 0 Disable axis
+ * @value 1 Normal direction
+ */
+PARAM_DEFINE_INT32(TD_MC_DBG_PITCH, 0);
+
+/**
+ * Tandem tailsitter MC debug: roll axis (left-right tilt)
+ *
+ * Enables and sets direction of the Tandem rectangular-layout yaw0 differential
+ * in rotary-wing mode. yaw0 works on MAIN1+MAIN4 (right) versus MAIN2+MAIN3 (left).
+ *
+ * @group Mixer
+ * @min -1
+ * @max 1
+ * @decimal 0
+ * @value -1 Reverse direction
+ * @value 0 Disable axis
+ * @value 1 Normal direction
+ */
+PARAM_DEFINE_INT32(TD_MC_DBG_ROLL, 0);
+
+/**
+ * Tandem tailsitter MC debug: spin axis (thrust-axis yaw)
+ *
+ * Enables and sets direction of the thrust-axis spin control in rotary-wing mode.
+ * spin (physical roll0) is split between MAIN1-4 anti-torque and MAIN7-8 wingtip
+ * differential according to TD_MC_YAW_MAIN.
+ *
+ * @group Mixer
+ * @min -1
+ * @max 1
+ * @decimal 0
+ * @value -1 Reverse direction
+ * @value 0 Disable axis
+ * @value 1 Normal direction
+ */
+PARAM_DEFINE_INT32(TD_MC_DBG_SPIN, 0);
+
+/**
+ * Tandem tailsitter main-propeller yaw share in rotary-wing mode
+ *
+ * Splits the rotary-wing yaw command between MAIN1-4 anti-torque mixing and
+ * MAIN7/8 wingtip propeller differential. A value of 0.30 means 30 percent
+ * main-propeller anti-torque and 70 percent wingtip differential. Use a
+ * negative value if the main-propeller anti-torque direction is reversed.
+ *
+ * @group Mixer
+ * @min -1
+ * @max 1
+ * @decimal 2
+ * @increment 0.05
+ */
+PARAM_DEFINE_FLOAT(TD_MC_YAW_MAIN, 0.30f);
+
+/**
+ * Tandem tailsitter wingtip yaw reverse in rotary-wing mode
+ *
+ * Reverses only the MAIN7/MAIN8 wingtip propeller yaw differential direction.
+ * This does not change the MAIN1-4 main-propeller anti-torque yaw direction.
+ *
+ * @group Mixer
+ * @min 0
+ * @max 1
+ * @value 0 Normal
+ * @value 1 Reverse wingtip yaw
+ */
+PARAM_DEFINE_INT32(TD_TIP_YAW_REV, 0);
+
+/**
  * Throttle Kill
  *
  * Set to 1 to force all motor outputs to disarmed value (900 us).

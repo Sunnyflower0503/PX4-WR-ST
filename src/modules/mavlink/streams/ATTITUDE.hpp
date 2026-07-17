@@ -81,7 +81,11 @@ private:
 
 			// QGC needs the MC frame for a tailsitter in rotary-wing mode.
 			// Keep vehicle_attitude itself unchanged for EKF and controllers.
-			if (vehicle_status.is_vtol_tailsitter && vtol_status.vtol_in_rw_mode) {
+			const bool tailsitter_rw_display = vehicle_status.is_vtol_tailsitter
+							   && (vtol_status.vtol_in_rw_mode
+							       || vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
+
+			if (tailsitter_rw_display) {
 				q = q * matrix::Quatf(matrix::Eulerf(0.0f, -M_PI_2_F, 0.0f));
 			}
 

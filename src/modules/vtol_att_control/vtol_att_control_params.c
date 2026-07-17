@@ -99,6 +99,34 @@ PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
 PARAM_DEFINE_INT32(TD_MC_DIRECT_EN, 0);
 
 /**
+ * Tandem tailsitter ground integrator lock
+ *
+ * When enabled, Tandem tailsitter MC/FW rate integrators are reset and held
+ * while commanded throttle is below TD_GND_THR_REL. This prevents ground-support
+ * windup during HITL while still allowing automatic release for jump takeoff.
+ *
+ * @boolean
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(TD_GND_I_LOCK, 0);
+
+/**
+ * Tandem tailsitter ground integrator release throttle
+ *
+ * Commanded throttle above this value releases TD_GND_I_LOCK automatically for
+ * jump takeoff. Set below the intended launch throttle and above the ground
+ * idle/check throttle.
+ *
+ * @unit norm
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_GND_THR_REL, 0.55f);
+
+/**
  * Duration of a front transition
  *
  * Time in seconds used for a transition

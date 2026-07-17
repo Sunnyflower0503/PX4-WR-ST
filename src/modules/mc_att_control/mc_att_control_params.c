@@ -158,3 +158,47 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_MAX, 200.0f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MC_MAN_TILT_TAU, 0.0f);
+
+/**
+ * Tailsitter manual MC hover pitch
+ *
+ * Physical nose-up pitch used as the neutral-stick attitude in manual
+ * stabilized multicopter mode. 90 degrees is vertical; a smaller value tilts
+ * the nose forward. This does not alter fixed-wing or transition control.
+ *
+ * @unit deg
+ * @min 80.0
+ * @max 100.0
+ * @decimal 1
+ * @increment 0.5
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_MC_HOV_P, 90.0f);
+
+/**
+ * Tailsitter manual MC thrust-axis heading hold
+ *
+ * When enabled, manual yaw commands integrate an adapted-frame thrust-axis
+ * heading target and centered yaw stick holds that heading. When disabled,
+ * yaw is body-rate controlled and centered stick only brakes angular rate.
+ *
+ * @boolean
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_INT32(TD_MC_YAW_HOLD, 0);
+
+/**
+ * Tailsitter manual MC yaw-rate feedforward scale
+ *
+ * Scales only the direct manual yaw-rate feedforward applied to the
+ * thrust-axis spin channel. The integrated heading target is unchanged.
+ * Lower values soften the initial rotor torque step while retaining heading
+ * hold and disturbance rejection through the attitude feedback loop.
+ *
+ * @min 0.0
+ * @max 1.5
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_MC_YAW_FF_SC, 1.0f);

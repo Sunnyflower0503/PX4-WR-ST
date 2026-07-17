@@ -142,6 +142,7 @@ private:
 	bool _flag_control_attitude_enabled_last{false};
 
 	bool _is_tailsitter{false};
+	bool _tandem_ground_released{false};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::FW_ACRO_X_MAX>) _param_fw_acro_x_max,
@@ -223,6 +224,9 @@ private:
 		(ParamFloat<px4::params::FW_INDI_RLL_A>) _param_INDI_roll_A,
 		(ParamFloat<px4::params::FW_INDI_RLL_B>) _param_INDI_roll_B,
 		(ParamBool<px4::params::FW_INDI_RLL_SW>) _param_INDI_roll_sw,
+
+		(ParamInt<px4::params::TD_GND_I_LOCK>) _param_td_gnd_i_lock,
+		(ParamFloat<px4::params::TD_GND_THR_REL>) _param_td_gnd_thr_rel,
 
 		(ParamFloat<px4::params::TRIM_PITCH>) _param_trim_pitch,
 		(ParamFloat<px4::params::TRIM_ROLL>) _param_trim_roll,

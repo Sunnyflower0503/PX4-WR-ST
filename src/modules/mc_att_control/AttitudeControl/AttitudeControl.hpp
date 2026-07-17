@@ -91,6 +91,12 @@ public:
 	 */
 	matrix::Vector3f update(const matrix::Quatf &q) const;
 
+	/**
+	 * Get / clear yaw feedforward setpoint (used by tailsitter frame adaptation)
+	 */
+	float getYawspeedSetpoint() const { return _yawspeed_setpoint; }
+	void clearYawspeedSetpoint() { _yawspeed_setpoint = 0.0f; }
+
 private:
 	matrix::Vector3f _proportional_gain;
 	matrix::Vector3f _rate_limit;

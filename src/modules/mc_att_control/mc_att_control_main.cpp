@@ -118,21 +118,33 @@ MulticopterAttitudeControl::throttle_curve(float throttle_stick_input)
 }
 
 void
-MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt, bool reset_yaw_sp)
+MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt, bool reset_yaw_sp,
+		bool tailsitter_nose_up_sp)
 {
 	vehicle_attitude_setpoint_s attitude_setpoint{};
-	const float yaw = Eulerf(q).psi();
+	// In nose-up hover, physical Euler yaw is singular and is not the rotation
+	// around the thrust axis. Use the same adapted MC frame as the attitude
+	// controller so _man_yaw_sp represents thrust-axis heading.
+	const Quatf q_yaw_reference = tailsitter_nose_up_sp
+					 ? q * Quatf(Eulerf(0.0f, -M_PI_2_F, 0.0f))
+					 : q;
+	const float yaw = Eulerf(q_yaw_reference).psi();
+	const bool tailsitter_heading_hold = tailsitter_nose_up_sp && (_param_td_mc_yaw_hold.get() == 1);
 
 	/* reset yaw setpoint to current position if needed */
-	if (reset_yaw_sp) {
+	if (reset_yaw_sp || (tailsitter_nose_up_sp && !tailsitter_heading_hold)) {
 		_man_yaw_sp = yaw;
+	}
 
-	} else if (math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f) > 0.05f
-		   || _param_mc_airmode.get() == (int32_t)Mixer::Airmode::roll_pitch_yaw) {
+	if (!reset_yaw_sp && (math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f) > 0.05f
+		   || _param_mc_airmode.get() == (int32_t)Mixer::Airmode::roll_pitch_yaw)) {
 
 		const float yaw_rate = math::radians(_param_mpc_man_y_max.get());
 		attitude_setpoint.yaw_sp_move_rate = _manual_control_setpoint.r * yaw_rate;
-		_man_yaw_sp = wrap_pi(_man_yaw_sp + attitude_setpoint.yaw_sp_move_rate * dt);
+
+		if (!tailsitter_nose_up_sp || tailsitter_heading_hold) {
+			_man_yaw_sp = wrap_pi(_man_yaw_sp + attitude_setpoint.yaw_sp_move_rate * dt);
+		}
 	}
 
 	/*
@@ -158,6 +170,34 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 
 	if (v_norm > _man_tilt_max) { // limit to the configured maximum tilt angle
 		v *= _man_tilt_max / v_norm;
+	}
+
+	if (tailsitter_nose_up_sp) {
+		// Tailsitter MC control is adapted into the standard multicopter frame
+		// before AttitudeControl::update(). In that adapted frame, the nose-up
+		// hover target is level and stick tilt is the ordinary MC AxisAngle.
+		// A physical hover pitch below 90 degrees is a negative pitch offset in
+		// this adapted frame.
+		const float hover_pitch = math::radians(math::constrain(_param_td_mc_hover_pitch.get(), 80.0f, 100.0f));
+		const float hover_pitch_offset = hover_pitch - M_PI_2_F;
+		// Rate mode tracks current adapted yaw. Heading-hold mode uses the
+		// integrated adapted-frame target; both use the same clean thrust-axis
+		// rate feedforward below.
+		const float yaw_sp = tailsitter_heading_hold ? _man_yaw_sp : yaw;
+		const Quatf q_sp = Quatf(Eulerf(0.0f, 0.0f, yaw_sp))
+				       * Quatf(AxisAnglef(v(0), v(1), 0.f))
+				       * Quatf(Eulerf(0.0f, hover_pitch_offset, 0.0f));
+
+		attitude_setpoint.roll_body = 0.0f;
+		attitude_setpoint.pitch_body = hover_pitch;
+		attitude_setpoint.yaw_body = yaw_sp;
+		q_sp.copyTo(attitude_setpoint.q_d);
+
+		attitude_setpoint.thrust_body[2] = -throttle_curve(math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f));
+		attitude_setpoint.timestamp = hrt_absolute_time();
+
+		_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
+		return;
 	}
 
 	Quatf q_sp_rpy = AxisAnglef(v(0), v(1), 0.f);
@@ -209,6 +249,7 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 
 	/* copy quaternion setpoint to attitude setpoint topic */
 	Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
+
 	q_sp.copyTo(attitude_setpoint.q_d);
 
 	attitude_setpoint.thrust_body[2] = -throttle_curve(math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f));
@@ -298,11 +339,9 @@ MulticopterAttitudeControl::Run()
 
 		if (run_att_ctrl) {
 
-			Quatf q{v_att.q};
-
-			if (_vtol_tailsitter && (is_hovering || is_tailsitter_transition)) {
-				q = q * Quatf(Eulerf(0.0f, -M_PI_2_F, 0.0f));
-			}
+			const Quatf q{v_att.q};
+			const bool tailsitter_control_frame = _vtol_tailsitter && (is_hovering || is_tailsitter_transition);
+			const Quatf q_control = tailsitter_control_frame ? q * Quatf(Eulerf(0.0f, -M_PI_2_F, 0.0f)) : q;
 
 			// Generate the attitude setpoint from stick inputs if we are in Manual/Stabilized mode
 			if (_v_control_mode.flag_control_manual_enabled &&
@@ -310,7 +349,7 @@ MulticopterAttitudeControl::Run()
 			    !_v_control_mode.flag_control_velocity_enabled &&
 			    !_v_control_mode.flag_control_position_enabled) {
 
-				generate_attitude_setpoint(q, dt, _reset_yaw_sp);
+				generate_attitude_setpoint(q, dt, _reset_yaw_sp, _vtol_tailsitter && is_hovering);
 				attitude_setpoint_generated = true;
 
 			} else {
@@ -318,7 +357,32 @@ MulticopterAttitudeControl::Run()
 				_man_y_input_filter.reset(0.f);
 			}
 
-			Vector3f rates_sp = _attitude_control.update(q);
+			// Tailsitter MC: extract yawspeed feedforward before update() so it doesn't
+			// get projected through q_control.inversed().dcm_z(), which leaks yaw rate
+			// into pitch/roll axes whenever q_control ≠ I (aircraft slightly off-vertical).
+			// We re-apply the feedforward directly to the thrust-axis spin channel
+			// (rates_sp(0)) after the rate swap, with zero cross-axis coupling.
+			float yaw_ff = 0.0f;
+			if (tailsitter_control_frame) {
+				yaw_ff = _attitude_control.getYawspeedSetpoint();
+				_attitude_control.clearYawspeedSetpoint();
+			}
+
+			Vector3f rates_sp = _attitude_control.update(q_control);
+
+			if (tailsitter_control_frame) {
+				const Vector3f rates_sp_adapted = rates_sp;
+				rates_sp(0) = -rates_sp_adapted(2);
+				rates_sp(1) =  rates_sp_adapted(1);
+				rates_sp(2) =  rates_sp_adapted(0);
+
+				// Re-apply yawspeed feedforward cleanly to thrust-axis spin.
+				// yaw_ff > 0 (stick right) → rates_sp(0) < 0 (CW around +X).
+				if (fabsf(yaw_ff) > 1e-6f) {
+					const float yaw_ff_scale = math::constrain(_param_td_mc_yaw_ff_scale.get(), 0.f, 1.5f);
+					rates_sp(0) -= yaw_ff_scale * yaw_ff;
+				}
+			}
 
 			// publish rate setpoint
 			vehicle_rates_setpoint_s v_rates_sp{};

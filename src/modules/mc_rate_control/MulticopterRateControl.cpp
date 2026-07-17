@@ -35,6 +35,7 @@
 
 #include <drivers/drv_hrt.h>
 #include <circuit_breaker/circuit_breaker.h>
+#include <lib/parameters/param.h>
 #include <mathlib/math/Limits.hpp>
 #include <mathlib/math/Functions.hpp>
 
@@ -49,6 +50,14 @@ MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
 	_vehicle_status.vehicle_type = vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
+
+	if (vtol) {
+		int32_t vt_type = -1;
+
+		if (param_get(param_find("VT_TYPE"), &vt_type) == PX4_OK) {
+			_vtol_tailsitter = (static_cast<vtol_type>(vt_type) == vtol_type::TAILSITTER);
+		}
+	}
 
 	parameters_updated();
 }
@@ -219,7 +228,32 @@ MulticopterRateControl::Run()
 			}
 
 			// run rate controller
-			const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt, _maybe_landed || _landed);
+			if (!_v_control_mode.flag_armed) {
+				_tandem_ground_released = false;
+
+			} else if (_thrust_sp >= _param_td_gnd_thr_rel.get()) {
+				_tandem_ground_released = true;
+			}
+
+			const bool tandem_ground_i_lock = (_param_td_gnd_i_lock.get() == 1)
+							  && _vehicle_status.is_vtol
+							  && _vtol_tailsitter
+							  && !_vehicle_status.in_transition_mode
+							  && !_tandem_ground_released;
+
+			const bool tandem_mc_static_i_reset = _vehicle_status.is_vtol
+							     && _vtol_tailsitter
+							     && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+							     && !_vehicle_status.in_transition_mode
+							     && _rates_sp.norm() < 0.02f
+							     && rates.norm() < 0.02f;
+
+			if (tandem_ground_i_lock || tandem_mc_static_i_reset) {
+				_rate_control.resetIntegral();
+			}
+
+			const Vector3f att_control = _rate_control.update(rates, _rates_sp, angular_accel, dt,
+							    _maybe_landed || _landed || tandem_ground_i_lock || tandem_mc_static_i_reset);
 
 			// publish rate controller status
 			rate_ctrl_status_s rate_ctrl_status{};

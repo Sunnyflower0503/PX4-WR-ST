@@ -59,6 +59,7 @@
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <vtol_att_control/vtol_type.h>
 
 using namespace time_literals;
 
@@ -113,6 +114,8 @@ private:
 	bool _actuators_0_circuit_breaker_enabled{false};	/**< circuit breaker to suppress output */
 	bool _landed{true};
 	bool _maybe_landed{true};
+	bool _vtol_tailsitter{false};
+	bool _tandem_ground_released{false};
 
 	float _battery_status_scale{0.0f};
 
@@ -159,6 +162,9 @@ private:
 		(ParamFloat<px4::params::MC_ACRO_SUPEXPOY>) _param_mc_acro_supexpoy,			/**< superexpo stick curve shape (yaw) */
 
 		(ParamBool<px4::params::MC_BAT_SCALE_EN>) _param_mc_bat_scale_en,
+
+		(ParamInt<px4::params::TD_GND_I_LOCK>) _param_td_gnd_i_lock,
+		(ParamFloat<px4::params::TD_GND_THR_REL>) _param_td_gnd_thr_rel,
 
 		(ParamInt<px4::params::CBRK_RATE_CTRL>) _param_cbrk_rate_ctrl
 	)

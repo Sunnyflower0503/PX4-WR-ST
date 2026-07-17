@@ -406,8 +406,10 @@ VtolAttitudeControl::Run()
 		// update the vtol state machine which decides which mode we are in
 		_vtol_type->update_vtol_state();
 
-		// reset transition command if not auto control
-		if (_v_control_mode.flag_control_manual_enabled) {
+		// reset transition command if not auto control. Tailsitter keeps the
+		// command so an armed FW vehicle can be commanded back to MC.
+		if (_v_control_mode.flag_control_manual_enabled
+		    && static_cast<vtol_type>(_params.vtol_type) != vtol_type::TAILSITTER) {
 			if (_vtol_type->get_mode() == mode::ROTARY_WING) {
 				_transition_command = vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC;
 
@@ -445,7 +447,6 @@ VtolAttitudeControl::Run()
 			_actuators_6 = {};
 			_actuators_6.timestamp_sample = _actuators_out_0.timestamp_sample;
 			_actuators_6.control[actuator_controls_s::INDEX_YAW] = _actuators_out_0.control[actuator_controls_s::INDEX_YAW];
-			_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
 			break;
 
 		case mode::ROTARY_WING:
@@ -470,7 +471,6 @@ VtolAttitudeControl::Run()
 			} else {
 				_actuators_6.timestamp_sample = _actuators_out_0.timestamp_sample;
 				_actuators_6.control[actuator_controls_s::INDEX_YAW] = _actuators_out_0.control[actuator_controls_s::INDEX_YAW];
-				_actuators_out_0.control[actuator_controls_s::INDEX_YAW] = 0.0f;
 			}
 			break;
 
@@ -492,6 +492,30 @@ VtolAttitudeControl::Run()
 
 		_actuators_6.timestamp = hrt_absolute_time();
 		_vtol_type->fill_actuator_outputs();
+
+		if (static_cast<vtol_type>(_params.vtol_type) == vtol_type::TAILSITTER) {
+			switch (_vtol_type->get_mode()) {
+			case mode::TRANSITION_TO_FW:
+			case mode::TRANSITION_TO_MC:
+			case mode::ROTARY_WING: {
+					const hrt_abstime actuator_6_timestamp = hrt_absolute_time();
+					const float yaw_for_wingtip = tandem_mc_direct ? _manual_control_setpoint.r :
+								      _actuators_out_0.control[actuator_controls_s::INDEX_YAW];
+
+					_actuators_6 = _actuators_out_0;
+					_actuators_6.timestamp = actuator_6_timestamp;
+					_actuators_6.timestamp_sample = tandem_mc_direct ? actuator_6_timestamp : _actuators_out_0.timestamp_sample;
+					_actuators_6.control[actuator_controls_s::INDEX_YAW] = yaw_for_wingtip;
+				}
+				break;
+
+			case mode::FIXED_WING:
+				_actuators_6 = {};
+				_actuators_6.timestamp = hrt_absolute_time();
+				_actuators_6.timestamp_sample = _actuators_out_1.timestamp_sample;
+				break;
+			}
+		}
 
 		if (tandem_mc_direct) {
 			_actuators_6 = {};

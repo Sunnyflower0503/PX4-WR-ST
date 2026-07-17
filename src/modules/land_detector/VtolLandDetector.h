@@ -41,7 +41,9 @@
 
 #pragma once
 
+#include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/airspeed_validated.h>
+#include <vtol_att_control/vtol_type.h>
 
 #include "MulticopterLandDetector.h"
 
@@ -51,7 +53,7 @@ namespace land_detector
 class VtolLandDetector : public MulticopterLandDetector
 {
 public:
-	VtolLandDetector() = default;
+	VtolLandDetector();
 	~VtolLandDetector() override = default;
 
 protected:
@@ -61,14 +63,21 @@ protected:
 	bool _get_freefall_state() override;
 
 private:
+	bool _is_tandem_ground_supported();
+
+	uORB::Subscription _actuator_controls_sub{ORB_ID(actuator_controls_0)};
 	uORB::Subscription _airspeed_validated_sub{ORB_ID(airspeed_validated)};
 
 	bool _was_in_air{false}; /**< indicates whether the vehicle was in the air in the previous iteration */
 	float _airspeed_filtered{0.0f}; /**< low pass filtered airspeed */
+	bool _is_tailsitter{false};
+	bool _tandem_ground_released{false};
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(
 		MulticopterLandDetector,
-		(ParamFloat<px4::params::LNDFW_AIRSPD_MAX>) _param_lndfw_airspd_max
+		(ParamFloat<px4::params::LNDFW_AIRSPD_MAX>) _param_lndfw_airspd_max,
+		(ParamInt<px4::params::TD_GND_I_LOCK>) _param_td_gnd_i_lock,
+		(ParamFloat<px4::params::TD_GND_THR_REL>) _param_td_gnd_thr_rel
 	);
 };
 

@@ -99,7 +99,13 @@ private:
 			updated = true;
 
 			if (land_detected.landed) {
-				_msg.landed_state = MAV_LANDED_STATE_ON_GROUND;
+				const bool tandem_ground_supported_armed = status.is_vtol
+						&& status.is_vtol_tailsitter
+						&& (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED)
+						&& !status.in_transition_mode
+						&& (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING);
+
+				_msg.landed_state = tandem_ground_supported_armed ? MAV_LANDED_STATE_IN_AIR : MAV_LANDED_STATE_ON_GROUND;
 
 			} else if (!land_detected.landed) {
 				_msg.landed_state = MAV_LANDED_STATE_IN_AIR;

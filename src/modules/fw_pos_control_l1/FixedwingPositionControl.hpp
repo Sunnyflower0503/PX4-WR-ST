@@ -259,6 +259,8 @@ private:
 	bool _was_in_transition{false};
 
 	bool _vtol_tailsitter{false};
+	float _td_last_auto_roll_sp{0.0f};
+	hrt_abstime _td_last_auto_roll_sp_time{0};
 
 	matrix::Vector2d _transition_waypoint{(double)NAN, (double)NAN};
 

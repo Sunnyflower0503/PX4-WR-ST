@@ -450,6 +450,26 @@ void FixedwingAttitudeControl::Run()
 					   !_vehicle_status.in_transition_mode && !_is_tailsitter)
 				       || (dt > 0.02f);
 
+		const bool tandem_fixed_wing_mode = _vehicle_status.is_vtol
+						    && _is_tailsitter
+						    && !_vehicle_status.in_transition_mode
+						    && (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING);
+
+		const float tandem_throttle_sp = PX4_ISFINITE(_att_sp.thrust_body[0]) ? _att_sp.thrust_body[0] : 0.0f;
+
+		if (!_vcontrol_mode.flag_armed) {
+			_tandem_ground_released = false;
+
+		} else if (tandem_throttle_sp >= _param_td_gnd_thr_rel.get()) {
+			_tandem_ground_released = true;
+		}
+
+		const bool tandem_ground_i_lock = (_param_td_gnd_i_lock.get() == 1)
+						  && tandem_fixed_wing_mode
+						  && !_tandem_ground_released;
+
+		lock_integrator = lock_integrator || tandem_ground_i_lock;
+
 		/* if we are in rotary wing mode, do nothing */
 		if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.is_vtol) {
 			perf_end(_loop_perf);
@@ -481,6 +501,7 @@ void FixedwingAttitudeControl::Run()
 			 * or a multicopter (but not transitioning VTOL or tailsitter)
 			 */
 			if (_landed
+			    || tandem_ground_i_lock
 			    || (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
 				&& !_vehicle_status.in_transition_mode && !_is_tailsitter)) {
 
@@ -581,6 +602,10 @@ void FixedwingAttitudeControl::Run()
 						_wheel_ctrl.control_attitude(dt, control_input);
 						_yaw_ctrl.reset_integrator();
 
+					} else if (tandem_fixed_wing_mode) {
+						_yaw_ctrl.reset_integrator();
+						_wheel_ctrl.reset_integrator();
+
 					} else {
 						// runs last, because is depending on output of roll and pitch attitude
 						_yaw_ctrl.control_attitude(dt, control_input);
@@ -639,6 +664,10 @@ void FixedwingAttitudeControl::Run()
 
 					if (wheel_control) {
 						yaw_u = _wheel_ctrl.control_bodyrate(dt, control_input);
+
+					} else if (tandem_fixed_wing_mode) {
+						_yaw_ctrl.reset_integrator();
+						yaw_u = 0.0f;
 
 					} else {
 						yaw_u = _yaw_ctrl.control_euler_rate(dt, control_input);
@@ -708,6 +737,12 @@ void FixedwingAttitudeControl::Run()
 						_rates_sp.thrust_body[0] : 0.0f;
 			}
 
+			if (tandem_ground_i_lock) {
+				_actuators.control[actuator_controls_s::INDEX_ROLL] = trim_roll;
+				_actuators.control[actuator_controls_s::INDEX_PITCH] = trim_pitch;
+				_actuators.control[actuator_controls_s::INDEX_YAW] = trim_yaw;
+			}
+
 			rate_ctrl_status_s rate_ctrl_status{};
 			rate_ctrl_status.timestamp = hrt_absolute_time();
 			rate_ctrl_status.rollspeed_integ = _roll_ctrl.get_integrator();
@@ -725,8 +760,10 @@ void FixedwingAttitudeControl::Run()
 
 		// Add feed-forward from roll control output to yaw control output
 		// This can be used to counteract the adverse yaw effect when rolling the plane
-		_actuators.control[actuator_controls_s::INDEX_YAW] += _param_fw_rll_to_yaw_ff.get()
-				* constrain(_actuators.control[actuator_controls_s::INDEX_ROLL], -1.0f, 1.0f);
+		if (!tandem_ground_i_lock) {
+			_actuators.control[actuator_controls_s::INDEX_YAW] += _param_fw_rll_to_yaw_ff.get()
+					* constrain(_actuators.control[actuator_controls_s::INDEX_ROLL], -1.0f, 1.0f);
+		}
 
 		_actuators.control[actuator_controls_s::INDEX_FLAPS] = _flaps_applied;
 		_actuators.control[5] = _manual_control_setpoint.aux1;

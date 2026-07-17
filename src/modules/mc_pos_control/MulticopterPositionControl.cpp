@@ -274,6 +274,9 @@ void MulticopterPositionControl::Run()
 		_in_failsafe = false;
 
 		_control_mode_sub.update(&_control_mode);
+		_manual_control_setpoint_sub.update(&_manual_control_setpoint);
+		_vehicle_attitude_sub.update(&_vehicle_attitude);
+		_vehicle_status_sub.update(&_vehicle_status);
 		_vehicle_land_detected_sub.update(&_vehicle_land_detected);
 
 		if (_param_mpc_use_hte.get()) {
@@ -400,7 +403,33 @@ void MulticopterPositionControl::Run()
 				math::min(speed_up, _param_mpc_z_vel_max_up.get()), // takeoff ramp starts with negative velocity limit
 				math::constrain(speed_down, 0.f, _param_mpc_z_vel_max_dn.get()));
 
+			const bool tailsitter_manual_rw = _control_mode.flag_control_manual_enabled
+							  && _vehicle_status.is_vtol
+							  && _vehicle_status.is_vtol_tailsitter
+							  && !_vehicle_status.in_transition_mode
+							  && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
+
+			if (tailsitter_manual_rw) {
+				// vehicle_local_position.heading is an Euler heading and becomes
+				// singular/coupled near the 90 deg tailsitter hover attitude. Use
+				// the same adapted MC frame as mc_att_control so position/altitude
+				// modes hold rotation about the physical thrust axis.
+				if (!_vtol_tailsitter_was_manual_rw_pos_ctrl || !PX4_ISFINITE(_vtol_tailsitter_rw_yaw_sp)) {
+					const Quatf q_adapted = Quatf(_vehicle_attitude.q) * Quatf(Eulerf(0.f, -M_PI_2_F, 0.f));
+					_vtol_tailsitter_rw_yaw_sp = Eulerf(q_adapted).psi();
+				}
+
+				if (fabsf(_manual_control_setpoint.r) > 0.05f && PX4_ISFINITE(_setpoint.yawspeed)) {
+					_vtol_tailsitter_rw_yaw_sp = wrap_pi(_vtol_tailsitter_rw_yaw_sp + _setpoint.yawspeed * dt);
+				} else {
+					_setpoint.yawspeed = 0.f;
+				}
+
+				_setpoint.yaw = _vtol_tailsitter_rw_yaw_sp;
+			}
+
 			_control.setInputSetpoint(_setpoint);
+			_vtol_tailsitter_was_manual_rw_pos_ctrl = tailsitter_manual_rw;
 
 			// update states
 			if (!PX4_ISFINITE(_setpoint.z)
@@ -457,6 +486,8 @@ void MulticopterPositionControl::Run()
 		} else {
 			// an update is necessary here because otherwise the takeoff state doesn't get skiped with non-altitude-controlled modes
 			_takeoff.updateTakeoffState(_control_mode.flag_armed, _vehicle_land_detected.landed, false, 10.f, true, time_stamp_now);
+			_vtol_tailsitter_was_manual_rw_pos_ctrl = false;
+			_vtol_tailsitter_rw_yaw_sp = NAN;
 		}
 
 		// Publish takeoff status

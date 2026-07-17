@@ -1839,6 +1839,38 @@ FixedwingPositionControl::Run()
 		if (control_position(_local_pos.timestamp, curr_pos, ground_speed, _pos_sp_triplet.previous, _pos_sp_triplet.current,
 				     _pos_sp_triplet.next)) {
 
+			const bool tandem_fw_auto = _vehicle_status.is_vtol
+						    && _vtol_tailsitter
+						    && (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)
+						    && !_vehicle_status.in_transition_mode
+						    && _control_mode.flag_control_auto_enabled;
+
+			if (tandem_fw_auto) {
+				const float speed = _airspeed_valid ? _airspeed : ground_speed.length();
+				const float speed_span = math::max(_param_fw_airspd_trim.get() - _param_fw_airspd_stall.get(), 0.1f);
+				const float speed_weight = math::constrain((speed - _param_fw_airspd_stall.get()) / speed_span, 0.0f, 1.0f);
+				const float roll_limit = radians(10.0f + speed_weight * math::max(_param_fw_r_lim.get() - 10.0f, 0.0f));
+				const float roll_slew_rate = radians(15.0f + speed_weight * math::max(_param_fw_l1_r_slew_max.get() - 15.0f, 0.0f));
+
+				_att_sp.roll_body = constrain(_att_sp.roll_body, -roll_limit, roll_limit);
+
+				const hrt_abstime now = hrt_absolute_time();
+
+				if (_td_last_auto_roll_sp_time != 0) {
+					const float dt = math::constrain((now - _td_last_auto_roll_sp_time) * 1e-6f, 0.002f, 0.1f);
+					const float max_delta = roll_slew_rate * dt;
+					_att_sp.roll_body = _td_last_auto_roll_sp
+							     + constrain(_att_sp.roll_body - _td_last_auto_roll_sp, -max_delta, max_delta);
+				}
+
+				_td_last_auto_roll_sp = _att_sp.roll_body;
+				_td_last_auto_roll_sp_time = now;
+
+			} else {
+				_td_last_auto_roll_sp_time = 0;
+				_td_last_auto_roll_sp = _att_sp.roll_body;
+			}
+
 			if (_control_mode.flag_control_manual_enabled) {
 				_att_sp.roll_body = constrain(_att_sp.roll_body, -radians(_param_fw_man_r_max.get()),
 							      radians(_param_fw_man_r_max.get()));

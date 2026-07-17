@@ -182,3 +182,135 @@ MAIN8 = tip_idle - yaw_gain × yaw6
 1. **Pitch 差动符号**: 需要在 HITL 中通过 FW_PMD_SIGN 参数确定正确符号，取决于飞行器实际抬头/低头姿态。
 2. **VT_FW_DIFTHR_EN = 0**: 当前差动推力开关关闭，如果需要 fw_in[YAW]→mc_out[ROLL] 的差动推力路由，需设为1。
 3. **FW_PMD_GAIN 调参**: 飞行测试后可能需要调整俯仰差动增益。
+4. **MC mode yaw feedforward coupling**: 已修复，见对话8。
+
+---
+
+## 对话8 — 2026-07-13 ~ 2026-07-14: MC 模式帧适配验证 + 混控重写 + 单轴调试
+
+### 帧适配代码审查
+
+用户对 `mc_att_control_main.cpp` 的三处改动经审查确认正确：
+- `q_control = q * Euler(0, -π/2, 0)` — 鼻头朝上映射为水平零姿态 ✓
+- `q_sp = AxisAnglef(v)` — 适配帧悬停目标 = I ✓
+- rate swap (适配X→真实Z, Y→Y, Z→-真实X) ✓
+
+### MC 混控从 Quad-X 改为 Tandem 矩形布局
+
+**文件**: `pwm_mix_out.cpp`, `pwm_mix_out.hpp`, `mixer_params.c`
+
+帧适配后 actuator_controls_0 真实轴语义：
+```
+roll0  = 绕真实X轴(推力轴/垂直朝上) → 自旋偏航
+pitch0 = 绕真实Y轴(水平) → 前后倾斜
+yaw0   = 绕真实Z轴(水平) → 左右倾斜 (注意:变量名叫yaw但物理是横滚!)
+```
+
+MC 混控改为 Tandem 矩形布局：
+```
+motor1 = thr0 + pitch0 - yaw0 + main_yaw  // MAIN1 右前: front+right
+motor2 = thr0 - pitch0 + yaw0 + main_yaw  // MAIN2 左后: rear+left
+motor3 = thr0 + pitch0 + yaw0 - main_yaw  // MAIN3 左前: front+left
+motor4 = thr0 - pitch0 - yaw0 - main_yaw  // MAIN4 右后: rear+right
+```
+- pitch0 做前后差动 (MAIN1+3 vs MAIN2+4)
+- yaw0 做左右差动 (MAIN1+4 vs MAIN2+3)
+- main_yaw (源自 roll0) 走对角反扭 + 翼尖桨 MAIN7-8 差动
+- 去掉 Quad-X 的 0.707107 系数（不等力臂才需要）
+
+### 新增 MC 单轴调试参数
+
+**文件**: `mixer_params.c` + `pwm_mix_out.hpp`
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| TD_MC_DBG_PITCH | 0 | 前后倾斜 (pitch0 → 前列vs后列). -1=反, 0=关, 1=正 |
+| TD_MC_DBG_ROLL  | 0 | 左右倾斜 (yaw0 → 右侧vs左侧). -1=反, 0=关, 1=正 |
+| TD_MC_DBG_SPIN  | 0 | 自旋偏航 (roll0 → 翼尖+反扭). -1=反, 0=关, 1=正 |
+
+油门始终开启。全关=四桨等推力纯悬停。逐轴确认方向后全开。
+
+### 单轴测试结论
+
+- 俯仰轴和滚转轴方向正确，单开可稳住。
+- 偏航(自旋)轴控不住 — 根因是 `AttitudeControl::update()` 的 yawspeed feedforward 通过 `q_control.inversed().dcm_z()` 投影到轻微倾斜的机体，耦合出 pitch/roll 分量导致发散。
+
+---
+
+## 对话9 — 2026-07-17: 修复 yawspeed feedforward 轴间耦合
+
+### 问题
+
+打偏航杆 → `yaw_sp_move_rate ≠ 0` → `AttitudeControl::update()` 执行：
+```cpp
+rate_setpoint += q_control.inversed().dcm_z() * _yawspeed_setpoint;
+```
+
+`dcm_z()` 在 q_control ≠ I 时（飞机有微小倾斜）会投影出三轴分量，yaw feedforward 漏入 pitch/roll 轴，mixer 真的产生俯仰/滚转力矩，飞机发散。
+
+### 修复
+
+不改 AttitudeControl 本体，在 `mc_att_control_main.cpp` 的调用侧处理：
+
+1. 调用 `update(q_control)` 前 — 保存并清零 yawspeed
+2. rate swap 后 — 把 yaw rate 直接加到 `rates_sp(0)`（真实X轴=推力轴=自旋轴），不经过投影
+
+### 改动文件
+
+**`AttitudeControl.hpp`** (行92后新增):
+```cpp
+float getYawspeedSetpoint() const { return _yawspeed_setpoint; }
+void clearYawspeedSetpoint() { _yawspeed_setpoint = 0.0f; }
+```
+
+**`mc_att_control_main.cpp`** (行340-347替换):
+```cpp
+// 保存并清零 yawspeed，避免 update() 内 dcm_z() 投影耦合
+float yaw_ff = 0.0f;
+if (tailsitter_control_frame) {
+    yaw_ff = _attitude_control.getYawspeedSetpoint();
+    _attitude_control.clearYawspeedSetpoint();
+}
+
+Vector3f rates_sp = _attitude_control.update(q_control);
+
+if (tailsitter_control_frame) {
+    // ... rate swap (不变) ...
+    // 直接加到推力轴自旋通道，零耦合
+    if (fabsf(yaw_ff) > 1e-6f) {
+        rates_sp(0) -= yaw_ff;
+    }
+}
+```
+
+非 tailsitter 路径完全不受影响。
+
+---
+
+## 对话10 — 2026-07-17: 旋翼悬停角与翼尖桨俯仰前馈
+
+新增两个参数：
+
+- `TD_MC_HOV_P`：tailsitter 旋翼增稳模式的中立悬停俯仰角。全局默认 `90 deg`，13020 机型默认 `87 deg`。仅修改手动增稳姿态目标，不作用于固定翼、过渡、定高或定点控制。
+- `TD_TIP_P_FF`：根据翼尖桨实际限幅 PWM 的总推力平方估计，为四个主桨加入俯仰差动前馈。扣除翼尖怠速基线，默认 `0` 表示关闭。
+
+前馈计算使用：
+```text
+tip_load = (tip_left_norm^2 + tip_right_norm^2) / 2 - tip_idle_norm^2
+pitch_ff = TD_TIP_P_FF * tip_load
+```
+
+支架验证时先保持 `TD_TIP_P_FF=0`，确认 `TD_MC_HOV_P=87` 的方向正确；随后以很小绝对值逐步测试 `TD_TIP_P_FF` 的正负方向。若翼尖桨增大后俯仰偏差变大，立即归零并反向。固定翼和过渡控制链未改。
+
+构建验证：`make cuav_nora_default` 通过，固件位于 `build/cuav_nora_default/cuav_nora_default.px4`。
+
+### 偏航触发发散的后续修复
+
+实时 MAVLink 监测显示：目标自旋角速度约 `+/-0.0349 rad/s`，实际 `xgyro` 却发散到约 `+6.8 rad/s`；速率控制器已输出约 `roll=-1.3` 刹车，但旋转仍加速。
+
+确认并修复两处执行链问题：
+
+1. `TD_MC_DIRECT_EN` 原先在自稳模式也会让混控采用摇杆值而忽略闭环 `roll0`。现在直通只允许在姿态控制关闭时生效，自稳模式始终保留速率控制器刹车权限。
+2. STaircraft 定义翼尖力矩 `Mx = addprop_y * (T_left - T_right)`，而原 `TD_TIP_YAW_REV=0` 的输出方向相反。13020 默认改为 `TD_TIP_YAW_REV=1`。
+
+首次验证建议将 `TD_MC_YAW_MAIN=0`，只验证翼尖闭环方向；确认后再逐步恢复主桨反扭份额。

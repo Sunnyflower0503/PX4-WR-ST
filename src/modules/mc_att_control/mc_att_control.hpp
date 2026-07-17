@@ -96,7 +96,8 @@ private:
 	/**
 	 * Generate & publish an attitude setpoint from stick inputs
 	 */
-	void		generate_attitude_setpoint(const matrix::Quatf &q, float dt, bool reset_yaw_sp);
+	void		generate_attitude_setpoint(const matrix::Quatf &q, float dt, bool reset_yaw_sp,
+						 bool tailsitter_nose_up_sp);
 
 	AttitudeControl _attitude_control; ///< class for attitude control calculations
 
@@ -157,7 +158,9 @@ private:
 		(ParamInt<px4::params::MPC_THR_CURVE>) _param_mpc_thr_curve,				/**< throttle curve behavior */
 
 		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,
-		(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau
+		(ParamFloat<px4::params::MC_MAN_TILT_TAU>) _param_mc_man_tilt_tau,
+		(ParamFloat<px4::params::TD_MC_HOV_P>) _param_td_mc_hover_pitch,
+		(ParamInt<px4::params::TD_MC_YAW_HOLD>) _param_td_mc_yaw_hold,
+		(ParamFloat<px4::params::TD_MC_YAW_FF_SC>) _param_td_mc_yaw_ff_scale
 	)
 };
-

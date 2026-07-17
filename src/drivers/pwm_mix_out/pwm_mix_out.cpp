@@ -628,9 +628,9 @@ void pwm_mix_out::mix_and_update_outputs()
 
 
                 // yaw thrust differential: left group (MAIN2+3) vs right group (MAIN1+4)
-                thr_diff = math::constrain(yaw1, -thr_diff_limit, thr_diff_limit);
-                float dt_right = math::constrain(thr0 + 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
-                float dt_left  = math::constrain(thr0 - 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+                thr_diff = math::constrain(yaw1 * _thr_rud_sc.get(), -thr_diff_limit, thr_diff_limit);
+                float dt_right = math::constrain(thr0 - 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
+                float dt_left  = math::constrain(thr0 + 0.5f * thr_diff, param_fw_thr_idle, param_fw_thr_max);
 
                 // prevent differential loss when one side saturates
                 if (dt_right <= param_fw_thr_idle || dt_right >= param_fw_thr_max) {
@@ -674,14 +674,69 @@ void pwm_mix_out::mix_and_update_outputs()
 
         } else {
             /*
-             * 原13020 mixer: R: 4x 使用 quad-X 布局 (0.707107 系数).
-             * 修改点: Tandem 不是 X quad, 而是矩形 Tandem 布局.
-             * pitch0 控制前后差动, roll0 控制左右差动, yaw0 不用于 MAIN1-4 (由 MAIN7-8 的 yaw6 处理).
+             * Tandem 矩形布局 MC 混控（机头垂直朝上）
+             *
+             * 帧适配后 actuator_controls_0 轴语义：
+             *   roll0  = 绕真实机体X轴(推力轴/垂直朝上) → 自旋偏航
+             *   pitch0 = 绕真实机体Y轴(水平) → 前后倾斜
+             *   yaw0   = 绕真实机体Z轴(水平) → 左右倾斜 (注意:变量名叫yaw但物理是横滚)
+             *
+             * 调试参数 (0=关, 1=正, -1=反):
+             *   TD_MC_DBG_PITCH — 前后倾斜 (pitch0 → 前列MAIN1+3 vs 后列MAIN2+4)
+             *   TD_MC_DBG_ROLL  — 左右倾斜 (yaw0   → 右侧MAIN1+4 vs 左侧MAIN2+3)
+             *   TD_MC_DBG_SPIN  — 自旋偏航 (roll0  → 翼尖MAIN7-8 + MAIN1-4反扭)
+             * 油门始终开启。
              */
-            const float motor1 = math::constrain(thr0 + 0.707107f * pitch0 - 0.707107f * roll0, 0.0f, 1.0f);  // MAIN1 right-front
-            const float motor2 = math::constrain(thr0 - 0.707107f * pitch0 + 0.707107f * roll0, 0.0f, 1.0f);  // MAIN2 left-rear
-            const float motor3 = math::constrain(thr0 + 0.707107f * pitch0 + 0.707107f * roll0, 0.0f, 1.0f);  // MAIN3 left-front
-            const float motor4 = math::constrain(thr0 - 0.707107f * pitch0 - 0.707107f * roll0, 0.0f, 1.0f);  // MAIN4 right-rear
+            // Manual yaw passthrough is only valid when the attitude loop is
+            // deliberately disabled. In stabilized mode the rate controller
+            // must retain authority to brake thrust-axis rotation.
+            const bool direct_manual_yaw = (_td_mc_direct_en.get() == 1) &&
+                _vehicle_control_mode.flag_control_manual_enabled &&
+                !_vehicle_control_mode.flag_control_attitude_enabled;
+            const float spin_cmd = direct_manual_yaw ? _manual_control_setpoint.r : roll0;
+            const float main_yaw_share = math::constrain(_td_mc_yaw_main.get(), -1.0f, 1.0f);
+            const float tip_yaw_share = math::constrain(1.0f - fabsf(main_yaw_share), 0.0f, 1.0f);
+            const float main_yaw = spin_cmd * main_yaw_share;
+            const float tip_yaw = spin_cmd * tip_yaw_share;
+
+            const int dbg_pitch = math::constrain(_td_mc_dbg_pitch.get(), -1, 1);
+            const int dbg_roll  = math::constrain(_td_mc_dbg_roll.get(),  -1, 1);
+            const int dbg_spin  = math::constrain(_td_mc_dbg_spin.get(),  -1, 1);
+
+            const float tip_idle = math::constrain(_td_tip_idle_pwm.get(),
+                math::max(_pwm_main7_min.get(), _pwm_main8_min.get()),
+                math::min(_pwm_main7_max.get(), _pwm_main8_max.get()));
+            const float yaw_gain = 1000.0f * _yaw_scale.get();
+            const float tip_spin = tip_yaw * static_cast<float>(dbg_spin);
+            const float tip_yaw_signed = (_td_tip_yaw_rev.get() == 1) ? -tip_spin : tip_spin;
+            const float tip_left_pwm = math::constrain(tip_idle - yaw_gain * tip_yaw_signed,
+                _pwm_main7_min.get(), _pwm_main7_max.get());
+            const float tip_right_pwm = math::constrain(tip_idle + yaw_gain * tip_yaw_signed,
+                _pwm_main8_min.get(), _pwm_main8_max.get());
+
+            // Propeller thrust is approximately proportional to speed squared.
+            // Subtracting the idle baseline keeps the compensation at zero when
+            // the wingtip propellers are only idling.
+            const float tip_idle_norm = math::constrain((tip_idle - 1000.0f) / 1000.0f, 0.0f, 1.0f);
+            const float tip_left_norm = math::constrain((tip_left_pwm - 1000.0f) / 1000.0f, 0.0f, 1.0f);
+            const float tip_right_norm = math::constrain((tip_right_pwm - 1000.0f) / 1000.0f, 0.0f, 1.0f);
+            const float tip_load = 0.5f * (tip_left_norm * tip_left_norm + tip_right_norm * tip_right_norm)
+                                   - tip_idle_norm * tip_idle_norm;
+            const float tip_pitch_ff = _td_tip_pitch_ff.get() * tip_load;
+            const float tip_xz_ff = _td_tip_xz_ff.get() * 0.5f * (tip_left_norm - tip_right_norm);
+            const float s_feedback = main_yaw * static_cast<float>(dbg_spin);
+            const float lateral_command = yaw0 * static_cast<float>(dbg_roll);
+            const float main_xz_ff = _td_main_xz_ff.get() * s_feedback;
+            const float zx_main_ff = _td_zx_main_ff.get() * lateral_command;
+
+            const float p = math::constrain(pitch0 * static_cast<float>(dbg_pitch) + tip_pitch_ff, -1.0f, 1.0f);
+            const float r = math::constrain(lateral_command + tip_xz_ff + main_xz_ff, -1.0f, 1.0f);
+            const float s = math::constrain(s_feedback + zx_main_ff, -1.0f, 1.0f);
+
+            const float motor1 = math::constrain(thr0 + p - r + s, 0.0f, 1.0f);  // MAIN1 右前: front+right
+            const float motor2 = math::constrain(thr0 - p + r + s, 0.0f, 1.0f);  // MAIN2 左后: rear+left
+            const float motor3 = math::constrain(thr0 + p + r - s, 0.0f, 1.0f);  // MAIN3 左前: front+left
+            const float motor4 = math::constrain(thr0 - p - r - s, 0.0f, 1.0f);  // MAIN4 右后: rear+right
 
             _actuator_outputs.output[0] = math::constrain(1000.f + motor1 * 1000.f,
                 _pwm_main1_min.get(), _pwm_main1_max.get());
@@ -695,23 +750,17 @@ void pwm_mix_out::mix_and_update_outputs()
             _actuator_outputs.output[4] = _pwm_main5_trim.get();
             _actuator_outputs.output[5] = _pwm_main6_trim.get();
 
-            const float tip_idle = 1000.0f;
-            const float yaw_gain = 1000.0f * _yaw_scale.get();
-            const bool direct_manual_yaw = (_td_mc_direct_en.get() == 1) &&
-                _vehicle_control_mode.flag_control_manual_enabled;
-            const float tip_yaw = direct_manual_yaw ? _manual_control_setpoint.r : yaw6;
+            _actuator_outputs.output[6] = tip_left_pwm;
+            _actuator_outputs.output[7] = tip_right_pwm;
 
-            _actuator_outputs.output[6] = math::constrain(tip_idle - yaw_gain * tip_yaw,
-                _pwm_main7_min.get(), _pwm_main7_max.get());
-            _actuator_outputs.output[7] = math::constrain(tip_idle + yaw_gain * tip_yaw,
-                _pwm_main8_min.get(), _pwm_main8_max.get());
+
         }
 
         if (_count % 100 == 0) {
             PX4_INFO("Tandem mix mode=%s aspd=%4.1f thr0=%4.2f r1=%4.2f p1=%4.2f y1=%4.2f y6=%4.2f pmd=%4.2f td=%4.2f "
-                "out=%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f",
+                 "out=%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f,%4.0f",
                 fixed_wing_mode ? "FW" : "MC",
-                (double)airspeed, (double)thr0, (double)roll0, (double)pitch0, (double)yaw0, (double)yaw6,
+                (double)airspeed, (double)thr0, (double)roll1, (double)pitch1, (double)yaw1, (double)yaw6,
                 (double)pitch_motor_diff, (double)thr_diff,
                 (double)_actuator_outputs.output[0], (double)_actuator_outputs.output[1],
                 (double)_actuator_outputs.output[2], (double)_actuator_outputs.output[3],
