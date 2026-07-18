@@ -265,6 +265,8 @@ private:
 	bool _td_fw_takeoff_completed{false};
 	float _td_fw_takeoff_start_alt{NAN};
 	hrt_abstime _td_fw_takeoff_start_time{0};
+	double _td_fw_takeoff_start_lat{NAN};
+	double _td_fw_takeoff_start_lon{NAN};
 
 	matrix::Vector2d _transition_waypoint{(double)NAN, (double)NAN};
 

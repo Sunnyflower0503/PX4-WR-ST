@@ -621,7 +621,7 @@ FixedwingPositionControl::in_takeoff_situation()
 	// the fixed-wing takeoff setpoint active while supported and during the
 	// initial climb instead of degrading it to a regular position setpoint.
 	if (_vehicle_status.is_vtol) {
-		if (!_vtol_tailsitter
+		if (!_vehicle_status.is_vtol_tailsitter
 		    || _vehicle_status.in_transition_mode
 		    || _vehicle_status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
 			return false;
@@ -1194,7 +1194,7 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 	/* Copy thrust output for publication */
 	const bool tandem_fw_auto_takeoff = _vehicle_status.is_vtol
-			&& _vtol_tailsitter
+			&& _vehicle_status.is_vtol_tailsitter
 			&& !_vehicle_status.in_transition_mode
 			&& (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)
 			&& _control_mode.flag_armed
@@ -1206,11 +1206,15 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 		_td_fw_takeoff_completed = false;
 		_td_fw_takeoff_start_alt = NAN;
 		_td_fw_takeoff_start_time = 0;
+		_td_fw_takeoff_start_lat = NAN;
+		_td_fw_takeoff_start_lon = NAN;
 
 	} else if (!_td_fw_takeoff_active && !_td_fw_takeoff_completed) {
 		_td_fw_takeoff_active = true;
 		_td_fw_takeoff_start_alt = _current_altitude;
 		_td_fw_takeoff_start_time = now;
+		_td_fw_takeoff_start_lat = _current_latitude;
+		_td_fw_takeoff_start_lon = _current_longitude;
 	}
 
 	if (_td_fw_takeoff_active) {
@@ -1308,7 +1312,26 @@ FixedwingPositionControl::control_takeoff(const hrt_abstime &now, const Vector2d
 	Vector2d curr_wp(pos_sp_curr.lat, pos_sp_curr.lon);
 	Vector2d prev_wp{0, 0}; /* previous waypoint */
 
-	if (pos_sp_prev.valid) {
+	const bool tandem_fw_auto_takeoff = _vehicle_status.is_vtol
+			&& _vehicle_status.is_vtol_tailsitter
+			&& !_vehicle_status.in_transition_mode
+			&& (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)
+			&& _control_mode.flag_armed
+			&& _control_mode.flag_control_auto_enabled;
+
+	if (tandem_fw_auto_takeoff) {
+		// The Navigator's previous setpoint can describe an unrelated or stale
+		// leg for the first mission takeoff item. Anchor L1 at the launch point
+		// so cross-track guidance starts from the actual stand position.
+		if (PX4_ISFINITE(_td_fw_takeoff_start_lat) && PX4_ISFINITE(_td_fw_takeoff_start_lon)) {
+			prev_wp(0) = _td_fw_takeoff_start_lat;
+			prev_wp(1) = _td_fw_takeoff_start_lon;
+
+		} else {
+			prev_wp = curr_pos;
+		}
+
+	} else if (pos_sp_prev.valid) {
 		prev_wp(0) = pos_sp_prev.lat;
 		prev_wp(1) = pos_sp_prev.lon;
 
@@ -1330,6 +1353,8 @@ FixedwingPositionControl::control_takeoff(const hrt_abstime &now, const Vector2d
 		_launchDetector.reset();
 		_launch_detection_state = LAUNCHDETECTION_RES_NONE;
 		_launch_detection_notify = 0;
+		_td_fw_takeoff_start_lat = NAN;
+		_td_fw_takeoff_start_lon = NAN;
 	}
 
 	if (_runway_takeoff.runwayTakeoffEnabled()) {
@@ -1894,7 +1919,7 @@ FixedwingPositionControl::Run()
 				     _pos_sp_triplet.next)) {
 
 			const bool tandem_fw_auto = _vehicle_status.is_vtol
-						    && _vtol_tailsitter
+						    && _vehicle_status.is_vtol_tailsitter
 						    && (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)
 						    && !_vehicle_status.in_transition_mode
 						    && _control_mode.flag_control_auto_enabled;
@@ -1969,6 +1994,8 @@ FixedwingPositionControl::reset_takeoff_state(bool force)
 		_launchDetector.reset();
 		_launch_detection_state = LAUNCHDETECTION_RES_NONE;
 		_launch_detection_notify = 0;
+		_td_fw_takeoff_start_lat = NAN;
+		_td_fw_takeoff_start_lon = NAN;
 
 	} else {
 		_launch_detection_state = LAUNCHDETECTION_RES_DETECTED_ENABLEMOTORS;
