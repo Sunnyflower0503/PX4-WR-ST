@@ -616,9 +616,20 @@ FixedwingPositionControl::update_desired_altitude(float dt)
 bool
 FixedwingPositionControl::in_takeoff_situation()
 {
-	// a VTOL does not need special takeoff handling
+	// VTOL normally takes off in rotary-wing mode. A tailsitter that is already
+	// in fixed-wing mode can, however, perform a fixed-wing stand launch. Keep
+	// the fixed-wing takeoff setpoint active while supported and during the
+	// initial climb instead of degrading it to a regular position setpoint.
 	if (_vehicle_status.is_vtol) {
-		return false;
+		if (!_vtol_tailsitter
+		    || _vehicle_status.in_transition_mode
+		    || _vehicle_status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
+			return false;
+		}
+
+		if (_landed) {
+			return true;
+		}
 	}
 
 	// in air for < 10s
@@ -1182,10 +1193,43 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 	}
 
 	/* Copy thrust output for publication */
+	const bool tandem_fw_auto_takeoff = _vehicle_status.is_vtol
+			&& _vtol_tailsitter
+			&& !_vehicle_status.in_transition_mode
+			&& (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)
+			&& _control_mode.flag_armed
+			&& _control_mode.flag_control_auto_enabled
+			&& (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF);
+
+	if (!tandem_fw_auto_takeoff) {
+		_td_fw_takeoff_active = false;
+		_td_fw_takeoff_completed = false;
+		_td_fw_takeoff_start_alt = NAN;
+		_td_fw_takeoff_start_time = 0;
+
+	} else if (!_td_fw_takeoff_active && !_td_fw_takeoff_completed) {
+		_td_fw_takeoff_active = true;
+		_td_fw_takeoff_start_alt = _current_altitude;
+		_td_fw_takeoff_start_time = now;
+	}
+
+	if (_td_fw_takeoff_active) {
+		const float altitude_gain = _current_altitude - _td_fw_takeoff_start_alt;
+		const bool climbout_reached = altitude_gain >= math::max(_param_fw_clmbout_diff.get(), 1.0f);
+		const hrt_abstime launch_timeout_us = static_cast<hrt_abstime>((10.0f + _param_td_fw_i_chk_t.get()) * 1e6f);
+		const bool launch_timeout = (now - _td_fw_takeoff_start_time) >= launch_timeout_us;
+
+		if (climbout_reached || launch_timeout) {
+			_td_fw_takeoff_active = false;
+			_td_fw_takeoff_completed = true;
+		}
+	}
+
 	if (_control_mode_current == FW_POSCTRL_MODE_AUTO && // launchdetector only available in auto
 	    pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF &&
 	    _launch_detection_state != LAUNCHDETECTION_RES_DETECTED_ENABLEMOTORS &&
-	    !_runway_takeoff.runwayTakeoffEnabled()) {
+	    !_runway_takeoff.runwayTakeoffEnabled() &&
+	    !_td_fw_takeoff_active) {
 
 		/* making sure again that the correct thrust is used,
 		 * without depending on library calls for safety reasons.
@@ -1208,7 +1252,13 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 	} else {
 		/* Copy thrust and pitch values from tecs */
-		if (_landed) {
+		if (_td_fw_takeoff_active) {
+			// Emulate the validated pilot action: apply the launch throttle
+			// immediately and keep it after the support has fallen away. The
+			// support state is deliberately not part of the handoff criterion.
+			_att_sp.thrust_body[0] = min(_param_td_fw_tko_thr.get(), min(_param_fw_thr_max.get(), throttle_max));
+
+		} else if (_landed) {
 			// when we are landed state we want the motor to spin at idle speed
 			_att_sp.thrust_body[0] = min(_param_fw_thr_idle.get(), throttle_max);
 
@@ -1234,6 +1284,10 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
 	if (use_tecs_pitch) {
 		_att_sp.pitch_body = get_tecs_pitch();
+	}
+
+	if (_td_fw_takeoff_active) {
+		_att_sp.pitch_body = min(_att_sp.pitch_body, radians(_param_td_fw_tko_pmax.get()));
 	}
 
 	if (_control_mode.flag_control_position_enabled) {

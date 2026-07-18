@@ -457,18 +457,42 @@ void FixedwingAttitudeControl::Run()
 
 		const float tandem_throttle_sp = PX4_ISFINITE(_att_sp.thrust_body[0]) ? _att_sp.thrust_body[0] : 0.0f;
 
-		if (!_vcontrol_mode.flag_armed) {
+		if (!_vcontrol_mode.flag_armed || !tandem_fixed_wing_mode) {
 			_tandem_ground_released = false;
+			_tandem_pitch_i_ready = false;
+			_tandem_pitch_i_zero_since = 0;
 
-		} else if (tandem_throttle_sp >= _param_td_gnd_thr_rel.get()) {
+		} else if (!_tandem_pitch_i_ready) {
+			constexpr float pitch_integrator_zero_epsilon = 1e-3f;
+
+			if (fabsf(_pitch_ctrl.get_integrator()) <= pitch_integrator_zero_epsilon) {
+				if (_tandem_pitch_i_zero_since == 0) {
+					_tandem_pitch_i_zero_since = hrt_absolute_time();
+				}
+
+				if (hrt_elapsed_time(&_tandem_pitch_i_zero_since)
+				    >= static_cast<hrt_abstime>(_param_td_fw_i_chk_t.get() * 1e6f)) {
+					_tandem_pitch_i_ready = true;
+				}
+
+			} else {
+				_tandem_pitch_i_zero_since = 0;
+			}
+		}
+
+		if (_tandem_pitch_i_ready && tandem_throttle_sp >= _param_td_gnd_thr_rel.get()) {
 			_tandem_ground_released = true;
 		}
+
+		const bool tandem_pitch_i_check = _vcontrol_mode.flag_armed
+				&& tandem_fixed_wing_mode
+				&& !_tandem_pitch_i_ready;
 
 		const bool tandem_ground_i_lock = (_param_td_gnd_i_lock.get() == 1)
 						  && tandem_fixed_wing_mode
 						  && !_tandem_ground_released;
 
-		lock_integrator = lock_integrator || tandem_ground_i_lock;
+		lock_integrator = lock_integrator || tandem_ground_i_lock || tandem_pitch_i_check;
 
 		/* if we are in rotary wing mode, do nothing */
 		if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.is_vtol) {
@@ -502,6 +526,7 @@ void FixedwingAttitudeControl::Run()
 			 */
 			if (_landed
 			    || tandem_ground_i_lock
+			    || tandem_pitch_i_check
 			    || (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
 				&& !_vehicle_status.in_transition_mode && !_is_tailsitter)) {
 
@@ -737,10 +762,15 @@ void FixedwingAttitudeControl::Run()
 						_rates_sp.thrust_body[0] : 0.0f;
 			}
 
-			if (tandem_ground_i_lock) {
+			if (tandem_ground_i_lock || tandem_pitch_i_check) {
 				_actuators.control[actuator_controls_s::INDEX_ROLL] = trim_roll;
 				_actuators.control[actuator_controls_s::INDEX_PITCH] = trim_pitch;
 				_actuators.control[actuator_controls_s::INDEX_YAW] = trim_yaw;
+			}
+
+			if (tandem_pitch_i_check) {
+				_actuators.control[actuator_controls_s::INDEX_THROTTLE] =
+					math::min(_actuators.control[actuator_controls_s::INDEX_THROTTLE], _param_fw_thr_idle.get());
 			}
 
 			rate_ctrl_status_s rate_ctrl_status{};

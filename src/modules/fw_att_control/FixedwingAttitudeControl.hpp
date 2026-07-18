@@ -143,6 +143,8 @@ private:
 
 	bool _is_tailsitter{false};
 	bool _tandem_ground_released{false};
+	bool _tandem_pitch_i_ready{false};
+	hrt_abstime _tandem_pitch_i_zero_since{0};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::FW_ACRO_X_MAX>) _param_fw_acro_x_max,
@@ -227,6 +229,8 @@ private:
 
 		(ParamInt<px4::params::TD_GND_I_LOCK>) _param_td_gnd_i_lock,
 		(ParamFloat<px4::params::TD_GND_THR_REL>) _param_td_gnd_thr_rel,
+		(ParamFloat<px4::params::TD_FW_I_CHK_T>) _param_td_fw_i_chk_t,
+		(ParamFloat<px4::params::FW_THR_IDLE>) _param_fw_thr_idle,
 
 		(ParamFloat<px4::params::TRIM_PITCH>) _param_trim_pitch,
 		(ParamFloat<px4::params::TRIM_ROLL>) _param_trim_roll,

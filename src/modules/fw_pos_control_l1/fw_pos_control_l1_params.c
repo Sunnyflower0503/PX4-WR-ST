@@ -129,6 +129,37 @@ PARAM_DEFINE_FLOAT(FW_THR_ALT_SCL, 0.0f);
 PARAM_DEFINE_FLOAT(FW_THR_SLEW_MAX, 0.0f);
 
 /**
+ * Tandem fixed-wing stand-launch throttle
+ *
+ * Throttle held during the dedicated tailsitter fixed-wing stand-launch
+ * phase. The phase ends after FW_CLMBOUT_DIFF is reached or after the
+ * launch safety timeout. Tune this parameter when aircraft mass or
+ * propulsion changes without changing the normal TECS throttle limits.
+ *
+ * @unit norm
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(TD_FW_TKO_THR, 0.90f);
+
+/**
+ * Tandem fixed-wing stand-launch pitch limit
+ *
+ * Maximum pitch setpoint during the dedicated stand-launch phase.
+ *
+ * @unit deg
+ * @min 10.0
+ * @max 80.0
+ * @decimal 1
+ * @increment 1.0
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(TD_FW_TKO_PMAX, 70.0f);
+
+/**
  * Negative pitch limit
  *
  * The minimum negative pitch the controller will output.

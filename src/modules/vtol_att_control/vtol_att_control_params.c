@@ -127,6 +127,23 @@ PARAM_DEFINE_INT32(TD_GND_I_LOCK, 0);
 PARAM_DEFINE_FLOAT(TD_GND_THR_REL, 0.55f);
 
 /**
+ * Fixed-wing stand-launch pitch-integrator check time
+ *
+ * While armed in tandem fixed-wing mode, motor output is held at idle and
+ * the attitude integrators are reset until the pitch integrator has remained
+ * near zero continuously for this duration. This prevents launch with stored
+ * pitch integral accumulated while the aircraft is constrained by a stand.
+ *
+ * @unit s
+ * @min 0.0
+ * @max 10.0
+ * @decimal 1
+ * @increment 0.1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_FW_I_CHK_T, 2.0f);
+
+/**
  * Duration of a front transition
  *
  * Time in seconds used for a transition

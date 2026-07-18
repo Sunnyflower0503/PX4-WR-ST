@@ -261,6 +261,10 @@ private:
 	bool _vtol_tailsitter{false};
 	float _td_last_auto_roll_sp{0.0f};
 	hrt_abstime _td_last_auto_roll_sp_time{0};
+	bool _td_fw_takeoff_active{false};
+	bool _td_fw_takeoff_completed{false};
+	float _td_fw_takeoff_start_alt{NAN};
+	hrt_abstime _td_fw_takeoff_start_time{0};
 
 	matrix::Vector2d _transition_waypoint{(double)NAN, (double)NAN};
 
@@ -431,6 +435,9 @@ private:
 		(ParamFloat<px4::params::FW_THR_MAX>) _param_fw_thr_max,
 		(ParamFloat<px4::params::FW_THR_MIN>) _param_fw_thr_min,
 		(ParamFloat<px4::params::FW_THR_SLEW_MAX>) _param_fw_thr_slew_max,
+		(ParamFloat<px4::params::TD_FW_TKO_THR>) _param_td_fw_tko_thr,
+		(ParamFloat<px4::params::TD_FW_TKO_PMAX>) _param_td_fw_tko_pmax,
+		(ParamFloat<px4::params::TD_FW_I_CHK_T>) _param_td_fw_i_chk_t,
 
 		(ParamBool<px4::params::FW_POSCTL_INV_ST>) _param_fw_posctl_inv_st,
 
