@@ -1233,7 +1233,8 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 	    pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF &&
 	    _launch_detection_state != LAUNCHDETECTION_RES_DETECTED_ENABLEMOTORS &&
 	    !_runway_takeoff.runwayTakeoffEnabled() &&
-	    !_td_fw_takeoff_active) {
+	    !_td_fw_takeoff_active &&
+	    !_td_fw_takeoff_completed) {
 
 		/* making sure again that the correct thrust is used,
 		 * without depending on library calls for safety reasons.
