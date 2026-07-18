@@ -160,6 +160,39 @@ PARAM_DEFINE_FLOAT(TD_FW_TKO_THR, 0.90f);
 PARAM_DEFINE_FLOAT(TD_FW_TKO_PMAX, 70.0f);
 
 /**
+ * Tandem fixed-wing stand-launch enable switch
+ *
+ * The dedicated tailsitter Mission stand launch remains at idle while this
+ * switch is disabled. After enabling it, the switch must remain enabled for
+ * two seconds before launch throttle is released. Disable it to abort a
+ * pending stand launch.
+ *
+ * @min 0
+ * @max 1
+ * @value 0 Hold at idle
+ * @value 1 Permit launch after two seconds
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_INT32(TD_FW_TKO_EN, 0);
+
+/**
+ * Tandem fixed-wing Mission waypoint acceptance limit
+ *
+ * Limits the horizontal acceptance radius reported to Navigator without
+ * changing the L1 look-ahead distance used by the lateral controller. This
+ * prevents a long, deliberately damped L1 period from completing Mission
+ * waypoints hundreds of metres early. Set to 0 to retain the native PX4
+ * behaviour.
+ *
+ * @unit m
+ * @min 0.0
+ * @max 200.0
+ * @decimal 1
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_FLOAT(TD_FW_WP_ACC, 90.0f);
+
+/**
  * Negative pitch limit
  *
  * The minimum negative pitch the controller will output.

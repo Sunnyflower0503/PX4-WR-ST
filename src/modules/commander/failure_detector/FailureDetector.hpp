@@ -77,7 +77,7 @@ public:
 	uint8_t getStatus() const { return _status; }
 
 private:
-	void updateAttitudeStatus();
+	void updateAttitudeStatus(const vehicle_status_s &vehicle_status);
 	void updateExternalAtsStatus();
 	void updateEscsStatus(const vehicle_status_s &vehicle_status);
 

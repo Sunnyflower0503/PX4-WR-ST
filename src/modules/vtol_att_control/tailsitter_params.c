@@ -54,6 +54,55 @@
  */
 PARAM_DEFINE_FLOAT(VT_TS_TRANS_P, -1.1f);
 
+/** Maximum airspeed for tailsitter back-transition entry.
+ * @unit m/s
+ * @min 0
+ * @max 30
+ * @decimal 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_BTR_ARSP, 12.0f);
+
+/** Maximum absolute fixed-wing roll angle for back-transition entry.
+ * @unit deg
+ * @min 1
+ * @max 45
+ * @decimal 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_BTR_ROLL, 10.0f);
+
+/** Maximum absolute fixed-wing pitch angle for back-transition entry.
+ * @unit deg
+ * @min 1
+ * @max 45
+ * @decimal 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_BTR_PITCH, 15.0f);
+
+/** Continuous stable time required before entering a back transition.
+ * @unit s
+ * @min 0
+ * @max 5
+ * @decimal 1
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_BTR_GATE_T, 1.0f);
+
+/**
+ * Back-transition waiting throttle limit
+ *
+ * The fixed-wing attitude loop remains active while throttle is limited so
+ * the aircraft can decelerate to TD_BTR_ARSP before pitching into hover.
+ *
+ * @min 0.1
+ * @max 1.0
+ * @decimal 2
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_FLOAT(TD_BTR_THR, 0.35f);
+
 /**
  * Duration of front transition phase 2
  *

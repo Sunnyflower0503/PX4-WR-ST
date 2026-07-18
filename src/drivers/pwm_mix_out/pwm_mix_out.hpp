@@ -338,6 +338,8 @@ private:
 		(ParamFloat<px4::params::TD_TIP_XZ_FF>) _td_tip_xz_ff,
 		(ParamFloat<px4::params::TD_MAIN_XZ_FF>) _td_main_xz_ff,
 		(ParamFloat<px4::params::TD_ZX_MAIN_FF>) _td_zx_main_ff,
+		(ParamFloat<px4::params::TD_POS_YAW_MAIN>) _td_pos_yaw_main,
+		(ParamFloat<px4::params::TD_POS_ZX_FF>) _td_pos_zx_ff,
 		(ParamFloat<px4::params::TD_MC_YAW_MAIN>) _td_mc_yaw_main,
         (ParamInt<px4::params::TD_TIP_YAW_REV>) _td_tip_yaw_rev,
 

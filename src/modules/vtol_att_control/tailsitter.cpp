@@ -60,6 +60,11 @@ Tailsitter::Tailsitter(VtolAttitudeControl *attc) :
 	_flag_was_in_trans_mode = false;
 	_params_handles_tailsitter.fw_pitch_sp_offset = param_find("FW_PSP_OFF");
 	_params_handles_tailsitter.front_trans_pitch = param_find("VT_TS_TRANS_P");
+	_params_handles_tailsitter.back_trans_airspeed_max = param_find("TD_BTR_ARSP");
+	_params_handles_tailsitter.back_trans_roll_max = param_find("TD_BTR_ROLL");
+	_params_handles_tailsitter.back_trans_pitch_max = param_find("TD_BTR_PITCH");
+	_params_handles_tailsitter.back_trans_gate_time = param_find("TD_BTR_GATE_T");
+	_params_handles_tailsitter.back_trans_throttle_max = param_find("TD_BTR_THR");
 }
 
 void
@@ -72,6 +77,14 @@ Tailsitter::parameters_update()
 
 	param_get(_params_handles_tailsitter.front_trans_pitch, &v);
 	_params_tailsitter.front_trans_pitch = v;
+
+	param_get(_params_handles_tailsitter.back_trans_airspeed_max, &_params_tailsitter.back_trans_airspeed_max);
+	param_get(_params_handles_tailsitter.back_trans_roll_max, &v);
+	_params_tailsitter.back_trans_roll_max = math::radians(v);
+	param_get(_params_handles_tailsitter.back_trans_pitch_max, &v);
+	_params_tailsitter.back_trans_pitch_max = math::radians(v);
+	param_get(_params_handles_tailsitter.back_trans_gate_time, &_params_tailsitter.back_trans_gate_time);
+	param_get(_params_handles_tailsitter.back_trans_throttle_max, &_params_tailsitter.back_trans_throttle_max);
 }
 
 void Tailsitter::update_vtol_state()
@@ -100,8 +113,45 @@ void Tailsitter::update_vtol_state()
 			break;
 
 		case vtol_mode::FW_MODE:
-			_vtol_schedule.flight_mode = vtol_mode::TRANSITION_BACK;
-			_vtol_schedule.transition_start = hrt_absolute_time();
+		{
+			_back_trans_requested_waiting = true;
+			const Eulerf attitude{Quatf(_v_att->q)};
+			const float airspeed = _airspeed_validated->calibrated_airspeed_m_s;
+			const bool airspeed_ok = PX4_ISFINITE(airspeed)
+				&& (_params_tailsitter.back_trans_airspeed_max <= FLT_EPSILON
+				    || airspeed <= _params_tailsitter.back_trans_airspeed_max);
+			const bool attitude_ok = fabsf(attitude.phi()) <= _params_tailsitter.back_trans_roll_max
+				&& fabsf(attitude.theta()) <= _params_tailsitter.back_trans_pitch_max;
+
+			if (airspeed_ok && attitude_ok) {
+				if (_back_trans_gate_since == 0) {
+					_back_trans_gate_since = hrt_absolute_time();
+					PX4_INFO("Back transition gate: stable, waiting %.1f s",
+						 (double)_params_tailsitter.back_trans_gate_time);
+				}
+
+				const float gate_elapsed = (hrt_absolute_time() - _back_trans_gate_since) * 1e-6f;
+
+				if (gate_elapsed >= _params_tailsitter.back_trans_gate_time) {
+					_vtol_schedule.flight_mode = vtol_mode::TRANSITION_BACK;
+					_vtol_schedule.transition_start = hrt_absolute_time();
+					_back_trans_gate_since = 0;
+					_back_trans_wait_reported = false;
+					_back_trans_requested_waiting = false;
+					PX4_INFO("Back transition gate: enabled at %.1f m/s", (double)airspeed);
+				}
+
+			} else {
+				_back_trans_gate_since = 0;
+
+				if (!_back_trans_wait_reported) {
+					PX4_INFO("Back transition gate: waiting (V %.1f, roll %.1f, pitch %.1f)",
+						 (double)airspeed, (double)math::degrees(attitude.phi()),
+						 (double)math::degrees(attitude.theta()));
+					_back_trans_wait_reported = true;
+				}
+			}
+		}
 			break;
 
 		case vtol_mode::TRANSITION_FRONT_P1:
@@ -121,6 +171,9 @@ void Tailsitter::update_vtol_state()
 		}
 
 	} else {  // user switchig to FW mode
+		_back_trans_gate_since = 0;
+		_back_trans_wait_reported = false;
+		_back_trans_requested_waiting = false;
 
 		switch (_vtol_schedule.flight_mode) {
 		case vtol_mode::MC_MODE:
@@ -302,7 +355,10 @@ void Tailsitter::fill_actuator_outputs()
 	mc_out[actuator_controls_s::INDEX_YAW]   = mc_in[actuator_controls_s::INDEX_YAW]   * _mc_yaw_weight;
 
 	if (_vtol_schedule.flight_mode == vtol_mode::FW_MODE) {
-		mc_out[actuator_controls_s::INDEX_THROTTLE] = fw_in[actuator_controls_s::INDEX_THROTTLE];
+		const float fw_throttle = _back_trans_requested_waiting ?
+			math::min(fw_in[actuator_controls_s::INDEX_THROTTLE], _params_tailsitter.back_trans_throttle_max) :
+			fw_in[actuator_controls_s::INDEX_THROTTLE];
+		mc_out[actuator_controls_s::INDEX_THROTTLE] = fw_throttle;
 		mc_out[actuator_controls_s::INDEX_PITCH] = fw_in[actuator_controls_s::INDEX_PITCH] * _params->diff_thrust_scale;
 
 		/* allow differential thrust if enabled */

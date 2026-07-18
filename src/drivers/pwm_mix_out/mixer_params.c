@@ -1303,6 +1303,37 @@ PARAM_DEFINE_FLOAT(TD_MAIN_XZ_FF, 0.0f);
 PARAM_DEFINE_FLOAT(TD_ZX_MAIN_FF, 0.0f);
 
 /**
+ * Position-mode main-propeller yaw share
+ *
+ * Overrides TD_MC_YAW_MAIN while horizontal position control is enabled.
+ * Setting this to zero assigns thrust-axis yaw to the wingtip propellers,
+ * avoiding the reciprocal yaw/lateral coupling of main-rotor differential.
+ * Stabilized and altitude modes continue to use TD_MC_YAW_MAIN.
+ *
+ * @min -1.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(TD_POS_YAW_MAIN, 0.0f);
+
+/**
+ * Position-mode lateral-to-main yaw feedforward
+ *
+ * Overrides TD_ZX_MAIN_FF while horizontal position control is enabled.
+ * Zero prevents a sustained position lateral command from being injected
+ * directly into main-propeller thrust-axis yaw differential.
+ *
+ * @min -10.0
+ * @max 10.0
+ * @decimal 3
+ * @increment 0.1
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(TD_POS_ZX_FF, 0.0f);
+
+/**
  * Tandem tailsitter MC debug: pitch axis (fore-aft tilt)
  *
  * Enables and sets direction of the Tandem rectangular-layout pitch differential

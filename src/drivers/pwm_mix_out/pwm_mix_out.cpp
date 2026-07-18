@@ -694,7 +694,10 @@ void pwm_mix_out::mix_and_update_outputs()
                 _vehicle_control_mode.flag_control_manual_enabled &&
                 !_vehicle_control_mode.flag_control_attitude_enabled;
             const float spin_cmd = direct_manual_yaw ? _manual_control_setpoint.r : roll0;
-            const float main_yaw_share = math::constrain(_td_mc_yaw_main.get(), -1.0f, 1.0f);
+            const bool position_control_enabled = _vehicle_control_mode.flag_control_position_enabled;
+            const float main_yaw_share = math::constrain(position_control_enabled
+                                         ? _td_pos_yaw_main.get()
+                                         : _td_mc_yaw_main.get(), -1.0f, 1.0f);
             const float tip_yaw_share = math::constrain(1.0f - fabsf(main_yaw_share), 0.0f, 1.0f);
             const float main_yaw = spin_cmd * main_yaw_share;
             const float tip_yaw = spin_cmd * tip_yaw_share;
@@ -727,7 +730,9 @@ void pwm_mix_out::mix_and_update_outputs()
             const float s_feedback = main_yaw * static_cast<float>(dbg_spin);
             const float lateral_command = yaw0 * static_cast<float>(dbg_roll);
             const float main_xz_ff = _td_main_xz_ff.get() * s_feedback;
-            const float zx_main_ff = _td_zx_main_ff.get() * lateral_command;
+            const float zx_main_ff = (position_control_enabled
+                                      ? _td_pos_zx_ff.get()
+                                      : _td_zx_main_ff.get()) * lateral_command;
 
             const float p = math::constrain(pitch0 * static_cast<float>(dbg_pitch) + tip_pitch_ff, -1.0f, 1.0f);
             const float r = math::constrain(lateral_command + tip_xz_ff + main_xz_ff, -1.0f, 1.0f);

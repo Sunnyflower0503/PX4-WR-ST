@@ -52,7 +52,7 @@ bool FailureDetector::update(const vehicle_status_s &vehicle_status, const vehic
 	uint8_t previous_status = _status;
 
 	if (vehicle_control_mode.flag_control_attitude_enabled) {
-		updateAttitudeStatus();
+		updateAttitudeStatus(vehicle_status);
 
 		if (_param_fd_ext_ats_en.get()) {
 			updateExternalAtsStatus();
@@ -69,13 +69,27 @@ bool FailureDetector::update(const vehicle_status_s &vehicle_status, const vehic
 	return _status != previous_status;
 }
 
-void FailureDetector::updateAttitudeStatus()
+void FailureDetector::updateAttitudeStatus(const vehicle_status_s &vehicle_status)
 {
 	vehicle_attitude_s attitude;
 
 	if (_vehicule_attitude_sub.update(&attitude)) {
 
-		const matrix::Eulerf euler(matrix::Quatf(attitude.q));
+		matrix::Quatf attitude_for_failure_check(attitude.q);
+
+		// A tailsitter in rotary-wing flight hovers with the physical fuselage
+		// pitch near 90 degrees. Applying the ordinary multicopter roll/pitch
+		// limits directly to that body attitude causes an unavoidable false
+		// FAILURE_PITCH and lockdown. Evaluate the same level MC control frame
+		// used by mc_att_control, while retaining body-frame protection in
+		// fixed-wing and transition flight.
+		if (vehicle_status.is_vtol_tailsitter
+		    && vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+		    && !vehicle_status.in_transition_mode) {
+			attitude_for_failure_check *= matrix::Quatf(matrix::Eulerf(0.0f, -M_PI_2_F, 0.0f));
+		}
+
+		const matrix::Eulerf euler(attitude_for_failure_check);
 		const float roll(euler.phi());
 		const float pitch(euler.theta());
 

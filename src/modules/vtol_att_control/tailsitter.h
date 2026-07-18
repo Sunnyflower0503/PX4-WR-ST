@@ -66,12 +66,26 @@ private:
 	struct {
 		float fw_pitch_sp_offset;
 		float front_trans_pitch;
+		float back_trans_airspeed_max;
+		float back_trans_roll_max;
+		float back_trans_pitch_max;
+		float back_trans_gate_time;
+		float back_trans_throttle_max;
 	} _params_tailsitter{};
 
 	struct {
 		param_t fw_pitch_sp_offset;
 		param_t front_trans_pitch;
+		param_t back_trans_airspeed_max;
+		param_t back_trans_roll_max;
+		param_t back_trans_pitch_max;
+		param_t back_trans_gate_time;
+		param_t back_trans_throttle_max;
 	} _params_handles_tailsitter{};
+
+	hrt_abstime _back_trans_gate_since{0};
+	bool _back_trans_wait_reported{false};
+	bool _back_trans_requested_waiting{false};
 
 	enum class vtol_mode {
 		MC_MODE = 0,			/**< vtol is in multicopter mode */

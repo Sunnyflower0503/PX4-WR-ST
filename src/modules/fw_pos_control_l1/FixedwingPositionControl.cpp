@@ -454,7 +454,10 @@ FixedwingPositionControl::status_publish()
 	pos_ctrl_status.wp_dist = get_distance_to_next_waypoint(_current_latitude, _current_longitude,
 				  _pos_sp_triplet.current.lat, _pos_sp_triplet.current.lon);
 
-	pos_ctrl_status.acceptance_radius = _l1_control.switch_distance(500.0f);
+	const float l1_switch_distance = _l1_control.switch_distance(500.0f);
+	const float mission_acceptance_limit = _param_td_fw_wp_acc.get();
+	pos_ctrl_status.acceptance_radius = mission_acceptance_limit > FLT_EPSILON ?
+		math::min(l1_switch_distance, mission_acceptance_limit) : l1_switch_distance;
 
 	pos_ctrl_status.yaw_acceptance = NAN;
 
@@ -1200,16 +1203,32 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 			&& _control_mode.flag_armed
 			&& _control_mode.flag_control_auto_enabled
 			&& (pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF);
+	const bool tandem_fw_takeoff_switch_enabled = _param_td_fw_tko_en.get() == 1;
+	constexpr hrt_abstime tandem_fw_takeoff_switch_delay_us = 2_s;
 
-	if (!tandem_fw_auto_takeoff) {
+	if (!tandem_fw_auto_takeoff || !tandem_fw_takeoff_switch_enabled) {
 		_td_fw_takeoff_active = false;
 		_td_fw_takeoff_completed = false;
+		_td_fw_takeoff_switch_ready = false;
 		_td_fw_takeoff_start_alt = NAN;
 		_td_fw_takeoff_start_time = 0;
+		_td_fw_takeoff_switch_since = 0;
 		_td_fw_takeoff_start_lat = NAN;
 		_td_fw_takeoff_start_lon = NAN;
 
-	} else if (!_td_fw_takeoff_active && !_td_fw_takeoff_completed) {
+	} else if (!_td_fw_takeoff_switch_ready) {
+		if (_td_fw_takeoff_switch_since == 0) {
+			_td_fw_takeoff_switch_since = now;
+			mavlink_log_info(&_mavlink_log_pub, "Stand launch switch: waiting 2 s");
+
+		} else if ((now - _td_fw_takeoff_switch_since) >= tandem_fw_takeoff_switch_delay_us) {
+			_td_fw_takeoff_switch_ready = true;
+			mavlink_log_info(&_mavlink_log_pub, "Stand launch switch: enabled");
+		}
+	}
+
+	if (tandem_fw_auto_takeoff && _td_fw_takeoff_switch_ready
+	    && !_td_fw_takeoff_active && !_td_fw_takeoff_completed) {
 		_td_fw_takeoff_active = true;
 		_td_fw_takeoff_start_alt = _current_altitude;
 		_td_fw_takeoff_start_time = now;
