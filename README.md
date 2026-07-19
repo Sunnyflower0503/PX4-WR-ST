@@ -1,3 +1,49 @@
+# PX4-WR-ST：Tandem Tailsitter HITL 固件
+
+> 本仓库是 PX4 的项目定制分支，不是未修改的上游副本。上游 PX4 介绍保留在下文；本项目操作先阅读本节和工作区 [`../README.md`](../README.md)。
+
+当前机型使用 `SYS_AUTOSTART=13020`、`COM_VEHICLE_ID=10` 和 `cuav_nora_default`。已实现并验证 Tandem 专用执行器分配、旋翼姿态坐标解耦、固定翼支架跃升门控、Mission 外环/TECS 调整，以及低速固定翼到旋翼转换。最近验证基线为提交 `d1bbed94be`。
+
+## 项目接口
+
+- MATLAB 飞机模型：`../STaircraft`
+- HITL 运行说明：`../STaircraft/HITL/README.md`
+- 调试报告：`../report/README.md`
+- 最近链路：TELEM2 COM9@115200 负责 HIL，飞控 USB COM5 负责命令，bootloader 曾枚举为 COM3；端口号可能改变。
+- QGC 路径：`D:\Program Files\QGroundControl\bin\QGroundControl.exe`，自动测试时应关闭，人工验证时可作为显示与操作界面。
+
+## 编译和刷写
+
+推荐保留 `build/cuav_nora_default` 做增量编译：
+
+```bash
+export PATH=/root/gcc-arm-none-eabi-7-2017-q4-major/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+cd /mnt/d/D_zx/26WORK/ShengTai/0710HITL_ST/PX4-WR-ST
+make -j8 cuav_nora_default
+```
+
+固件产物：`build/cuav_nora_default/cuav_nora_default.px4`。刷写时应自动发现 CUAV Nora bootloader，不要硬编码 COM3。固件源码修改前必须先取得用户批准；获批后可直接修改、增量编译、刷写并运行回归测试。
+
+## 关键安全状态
+
+Mission 支架跃升使用 `TD_FW_TKO_EN` 作为独立开关，0→1 后固件还要求连续等待约 2 s。测试结束必须上锁并恢复 `TD_FW_TKO_EN=0`、`COM_RC_IN_MODE=0`，同时冻结 MATLAB 模型 `force_enable=0`。
+
+与当前功能最相关的代码位于：
+
+```text
+ROMFS/px4fmu_common/init.d/airframes/13020_tandem_x_tailsitter
+src/drivers/pwm_mix_out/
+src/modules/mc_att_control/
+src/modules/fw_att_control/
+src/modules/fw_pos_control_l1/
+src/modules/vtol_att_control/
+src/modules/navigator/
+```
+
+不要修改或提交当前无关的嵌套依赖工作树（例如 `src/drivers/uavcan/libuavcan`、`src/lib/crypto/monocypher`），除非任务明确涉及它们。
+
+---
+
 # PX4 Drone Autopilot
 
 [![Releases](https://img.shields.io/github/release/PX4/PX4-Autopilot.svg)](https://github.com/PX4/PX4-Autopilot/releases) [![DOI](https://zenodo.org/badge/22634/PX4/PX4-Autopilot.svg)](https://zenodo.org/badge/latestdoi/22634/PX4/PX4-Autopilot)
