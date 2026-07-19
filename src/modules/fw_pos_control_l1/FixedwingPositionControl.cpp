@@ -278,6 +278,7 @@ FixedwingPositionControl::vehicle_attitude_poll()
 		const Vector3f rates{angular_velocity.xyz};
 
 		Dcmf R{Quatf(att.q)};
+		_td_raw_yaw = Eulerf(R)(2);
 
 		// if the vehicle is a tailsitter we have to rotate the attitude by the pitch offset
 		// between multirotor and fixed wing flight
@@ -928,6 +929,30 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
 
             }
             _l1_method_old = l1_method;
+
+            if (_vehicle_status.is_vtol_tailsitter
+                && pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION
+                && _param_td_fw_nav_dir.get() == 1) {
+                const float bearing_to_waypoint = get_bearing_to_next_waypoint(
+                    curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
+                // In this HIL interface the local-position lateral velocity has
+                // the opposite sign from the global longitude/attitude convention.
+                // Use the measured aircraft heading so bearing and course share a
+                // consistent frame.
+                const float course_error = wrap_pi(bearing_to_waypoint - _td_raw_yaw);
+                const float roll_limit = radians(math::max(_param_fw_r_lim.get(), 1.0f));
+
+                // The tailsitter HIL plant uses the opposite lateral-axis convention
+                // from the stock L1 roll command. Pure pursuit in the PX4 navigation
+                // frame gives the correct turn direction and remains self-correcting
+                // for small cross-track errors.
+                _att_sp.roll_body = constrain(0.15f * course_error, -roll_limit, roll_limit);
+                _att_sp.yaw_body = bearing_to_waypoint;
+                _td_direct_turn_active = true;
+
+            } else {
+                _td_direct_turn_active = false;
+            }
 
             // 直接侧力控制结果发布到 actuators_dsc
             actuators_dsc.timestamp = hrt_absolute_time();
@@ -1945,11 +1970,8 @@ FixedwingPositionControl::Run()
 						    && _control_mode.flag_control_auto_enabled;
 
 			if (tandem_fw_auto) {
-				const float speed = _airspeed_valid ? _airspeed : ground_speed.length();
-				const float speed_span = math::max(_param_fw_airspd_trim.get() - _param_fw_airspd_stall.get(), 0.1f);
-				const float speed_weight = math::constrain((speed - _param_fw_airspd_stall.get()) / speed_span, 0.0f, 1.0f);
-				const float roll_limit = radians(10.0f + speed_weight * math::max(_param_fw_r_lim.get() - 10.0f, 0.0f));
-				const float roll_slew_rate = radians(15.0f + speed_weight * math::max(_param_fw_l1_r_slew_max.get() - 15.0f, 0.0f));
+				const float roll_limit = radians(math::max(_param_fw_r_lim.get(), 1.0f));
+				const float roll_slew_rate = radians(math::max(_param_fw_l1_r_slew_max.get(), 0.1f));
 
 				_att_sp.roll_body = constrain(_att_sp.roll_body, -roll_limit, roll_limit);
 

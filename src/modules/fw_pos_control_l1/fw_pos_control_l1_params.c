@@ -193,6 +193,22 @@ PARAM_DEFINE_INT32(TD_FW_TKO_EN, 0);
 PARAM_DEFINE_FLOAT(TD_FW_WP_ACC, 90.0f);
 
 /**
+ * Tandem tailsitter direct Mission bearing control
+ *
+ * Uses direct waypoint-bearing error for roll guidance in AUTO position-waypoint
+ * flight. This avoids the incompatible L1 cross-track/turn sign convention of
+ * the custom Tandem HITL model. Manual, takeoff, loiter and VTOL control are
+ * unchanged.
+ *
+ * @min 0
+ * @max 1
+ * @value 0 Standard L1 guidance
+ * @value 1 Direct waypoint-bearing guidance
+ * @group FW L1 Control
+ */
+PARAM_DEFINE_INT32(TD_FW_NAV_DIR, 1);
+
+/**
  * Negative pitch limit
  *
  * The minimum negative pitch the controller will output.

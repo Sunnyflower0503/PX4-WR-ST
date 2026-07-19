@@ -259,8 +259,10 @@ private:
 	bool _was_in_transition{false};
 
 	bool _vtol_tailsitter{false};
+	float _td_raw_yaw{0.0f};
 	float _td_last_auto_roll_sp{0.0f};
 	hrt_abstime _td_last_auto_roll_sp_time{0};
+	bool _td_direct_turn_active{false};
 	bool _td_fw_takeoff_active{false};
 	bool _td_fw_takeoff_completed{false};
 	bool _td_fw_takeoff_switch_ready{false};
@@ -443,6 +445,7 @@ private:
 		(ParamFloat<px4::params::TD_FW_TKO_PMAX>) _param_td_fw_tko_pmax,
 		(ParamInt<px4::params::TD_FW_TKO_EN>) _param_td_fw_tko_en,
 		(ParamFloat<px4::params::TD_FW_WP_ACC>) _param_td_fw_wp_acc,
+		(ParamInt<px4::params::TD_FW_NAV_DIR>) _param_td_fw_nav_dir,
 		(ParamFloat<px4::params::TD_FW_I_CHK_T>) _param_td_fw_i_chk_t,
 
 		(ParamBool<px4::params::FW_POSCTL_INV_ST>) _param_fw_posctl_inv_st,
