@@ -1241,6 +1241,33 @@ PARAM_DEFINE_FLOAT(FW_PMD_ASPD_FULL, 8.0f);
 PARAM_DEFINE_FLOAT(TD_TIP_IDLE_PWM, 1300.0f);
 
 /**
+ * Enable rear-contact wingtip-propeller protection
+ *
+ * In rotary-wing mode, latch the wingtip propellers at TD_TIP_GND_PWM after
+ * the HITL model reports all three rear contact points on the ground. The
+ * latch is cleared on disarm. This is specific to the TandemTailSitter mixer.
+ *
+ * @group Mixer
+ * @boolean
+ */
+PARAM_DEFINE_INT32(TD_TIP_GND_EN, 1);
+
+/**
+ * Rear-contact wingtip-propeller PWM
+ *
+ * Minimum neutral PWM for MAIN7/MAIN8 after the rear-contact protection has
+ * latched. Yaw differential remains active around this neutral value.
+ *
+ * @group Mixer
+ * @unit us
+ * @min 1000
+ * @max 1800
+ * @decimal 0
+ * @increment 10
+ */
+PARAM_DEFINE_FLOAT(TD_TIP_GND_PWM, 1500.0f);
+
+/**
  * Tailsitter wingtip thrust pitch feedforward
  *
  * Adds pitch differential to the main propellers according to the wingtip

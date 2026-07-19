@@ -60,6 +60,7 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
 #include <uORB/topics/airspeed_validated.h>
+#include <uORB/topics/debug_key_value.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/parameter_update.h>
@@ -152,6 +153,7 @@ private:
     uORB::Subscription _actuator_controls_1_sub{ORB_ID(actuator_controls_1)};
     uORB::Subscription _actuator_controls_6_sub{ORB_ID(actuator_controls_6)};
     uORB::Subscription _airspeed_validated_sub{ORB_ID(airspeed_validated)};
+    uORB::Subscription _debug_key_value_sub{ORB_ID(debug_key_value)};
     uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
     uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
     uORB::Subscription _vtol_vehicle_status_sub{ORB_ID(vtol_vehicle_status)};
@@ -209,6 +211,9 @@ private:
     actuator_controls_s _actuator_controls_1{};
     actuator_controls_s _actuator_controls_6{};
     airspeed_validated_s _airspeed_validated{};
+    debug_key_value_s _debug_key_value{};
+    hrt_abstime _rear_contact_timestamp{0};
+    bool _rear_contact_latched{false};
     manual_control_setpoint_s _manual_control_setpoint{};
     vehicle_control_mode_s _vehicle_control_mode{};
     vtol_vehicle_status_s _vtol_vehicle_status{};
@@ -334,6 +339,8 @@ private:
         (ParamFloat<px4::params::FW_PMD_ASPD_ST>) _fw_pitch_motor_diff_aspd_start,
         (ParamFloat<px4::params::FW_PMD_ASPD_FULL>) _fw_pitch_motor_diff_aspd_full,
 		(ParamFloat<px4::params::TD_TIP_IDLE_PWM>) _td_tip_idle_pwm,
+		(ParamInt<px4::params::TD_TIP_GND_EN>) _td_tip_ground_enable,
+		(ParamFloat<px4::params::TD_TIP_GND_PWM>) _td_tip_ground_pwm,
 		(ParamFloat<px4::params::TD_TIP_P_FF>) _td_tip_pitch_ff,
 		(ParamFloat<px4::params::TD_TIP_XZ_FF>) _td_tip_xz_ff,
 		(ParamFloat<px4::params::TD_MAIN_XZ_FF>) _td_main_xz_ff,

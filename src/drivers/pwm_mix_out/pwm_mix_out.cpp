@@ -706,7 +706,17 @@ void pwm_mix_out::mix_and_update_outputs()
             const int dbg_roll  = math::constrain(_td_mc_dbg_roll.get(),  -1, 1);
             const int dbg_spin  = math::constrain(_td_mc_dbg_spin.get(),  -1, 1);
 
-            const float tip_idle = math::constrain(_td_tip_idle_pwm.get(),
+            const bool rear_contact_fresh = _rear_contact_timestamp != 0
+                                            && hrt_elapsed_time(&_rear_contact_timestamp) < 500_ms;
+
+            if (_td_tip_ground_enable.get() == 1 && rear_contact_fresh) {
+                _rear_contact_latched = true;
+            }
+
+            const float commanded_tip_idle = _rear_contact_latched
+                                               ? math::max(_td_tip_idle_pwm.get(), _td_tip_ground_pwm.get())
+                                               : _td_tip_idle_pwm.get();
+            const float tip_idle = math::constrain(commanded_tip_idle,
                 math::max(_pwm_main7_min.get(), _pwm_main8_min.get()),
                 math::min(_pwm_main7_max.get(), _pwm_main8_max.get()));
             const float yaw_gain = 1000.0f * _yaw_scale.get();
@@ -1016,9 +1026,20 @@ void pwm_mix_out::Run()
     _actuator_controls_1_sub.update(&_actuator_controls_1);
     _actuator_controls_6_sub.update(&_actuator_controls_6);
     _airspeed_validated_sub.update(&_airspeed_validated);
+    if (_debug_key_value_sub.update(&_debug_key_value)
+        && strncmp(_debug_key_value.key, "TD_REAR", sizeof(_debug_key_value.key)) == 0) {
+        if (_debug_key_value.value > 0.5f) {
+            _rear_contact_timestamp = _debug_key_value.timestamp;
+        }
+    }
     _manual_control_setpoint_sub.update(&_manual_control_setpoint);
     _vehicle_control_mode_sub.update(&_vehicle_control_mode);
     _vtol_vehicle_status_sub.update(&_vtol_vehicle_status);
+
+    if (!_armed_state) {
+        _rear_contact_latched = false;
+        _rear_contact_timestamp = 0;
+    }
     // Check throttle kill from uORB topic and parameter
     _throttle_kill_sub.update(&_throttle_kill);
     bool kill_requested = _throttle_kill.kill || (_thr_kill.get() == 1);
