@@ -32,15 +32,23 @@ param set-default TD_TIP_YAW_REV 1
 param set-default COM_DISARM_PRFLT -1
 param set-default FW_MAN_R_MAX 15
 param set-default FW_MAN_P_MAX 10
-param set-default FW_R_TC 0.7
-param set-default FW_P_TC 0.7
-param set-default FW_R_RMAX 35
-param set-default FW_P_RMAX_POS 30
-param set-default FW_P_RMAX_NEG 30
-param set-default FW_R_LIM 20
-param set-default FW_L1_PERIOD 30
-param set-default FW_L1_DAMPING 0.85
-param set-default FW_L1_R_SLEW_MAX 25
+param set-default FW_RR_P 0.05
+param set-default FW_RR_I 0.04
+param set-default FW_RR_FF 0.25
+param set-default FW_RR_IMAX 0.15
+param set-default FW_PR_P 0.07
+param set-default FW_PR_I 0.04
+param set-default FW_PR_FF 0.40
+param set-default FW_PR_IMAX 0.20
+param set-default FW_R_TC 0.5
+param set-default FW_P_TC 0.5
+param set-default FW_R_RMAX 45
+param set-default FW_P_RMAX_POS 35
+param set-default FW_P_RMAX_NEG 35
+param set-default FW_R_LIM 25
+param set-default FW_L1_PERIOD 20
+param set-default FW_L1_DAMPING 0.8
+param set-default FW_L1_R_SLEW_MAX 8
 param set-default SENS_BOARD_ROT 24
 set MAV_TYPE 20
 

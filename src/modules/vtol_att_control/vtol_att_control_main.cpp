@@ -100,6 +100,7 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	_params_handles.mpc_land_alt1 = param_find("MPC_LAND_ALT1");
 	_params_handles.mpc_land_alt2 = param_find("MPC_LAND_ALT2");
 	_params_handles.tandem_mc_direct_en = param_find("TD_MC_DIRECT_EN");
+	_params_handles.tandem_backtrans_debug_fast = param_find("TD_BTR_DBG_FAST");
 
 	_params_handles.down_pitch_max = param_find("VT_DWN_PITCH_MAX");
 	_params_handles.forward_thrust_scale = param_find("VT_FWD_THRUST_SC");
@@ -305,6 +306,8 @@ VtolAttitudeControl::parameters_update()
 	param_get(_params_handles.mpc_land_alt2, &_params.mpc_land_alt2);
 	param_get(_params_handles.tandem_mc_direct_en, &l);
 	_params.tandem_mc_direct_en = (l == 1);
+	param_get(_params_handles.tandem_backtrans_debug_fast, &l);
+	_params.tandem_backtrans_debug_fast = (l == 1);
 
 	// update the parameters of the instances of base VtolType
 	if (_vtol_type != nullptr) {

@@ -99,6 +99,21 @@ PARAM_DEFINE_INT32(VT_ELEV_MC_LOCK, 1);
 PARAM_DEFINE_INT32(TD_MC_DIRECT_EN, 0);
 
 /**
+ * Tandem tailsitter fast FW to MC debug
+ *
+ * If enabled for a tailsitter, an armed fixed-wing vehicle can enter the
+ * back-transition immediately when MC is requested, bypassing the airspeed,
+ * roll, pitch and stable-time gate used for normal automatic FW to MC.
+ *
+ * This is only intended for HITL/debug switching convenience. Keep disabled
+ * for normal automatic missions and flight tests.
+ *
+ * @boolean
+ * @group VTOL Attitude Control
+ */
+PARAM_DEFINE_INT32(TD_BTR_DBG_FAST, 0);
+
+/**
  * Tandem tailsitter ground integrator lock
  *
  * When enabled, Tandem tailsitter MC/FW rate integrators are reset and held

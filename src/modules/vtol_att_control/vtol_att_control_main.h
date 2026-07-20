@@ -223,6 +223,7 @@ private:
 		param_t mpc_land_alt2;
 		param_t diff_thrust_roll_scale;
 		param_t tandem_mc_direct_en;
+		param_t tandem_backtrans_debug_fast;
 	} _params_handles{};
 
 	hrt_abstime _last_run_timestamp{0};

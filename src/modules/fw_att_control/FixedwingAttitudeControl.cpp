@@ -627,10 +627,6 @@ void FixedwingAttitudeControl::Run()
 						_wheel_ctrl.control_attitude(dt, control_input);
 						_yaw_ctrl.reset_integrator();
 
-					} else if (tandem_fixed_wing_mode) {
-						_yaw_ctrl.reset_integrator();
-						_wheel_ctrl.reset_integrator();
-
 					} else {
 						// runs last, because is depending on output of roll and pitch attitude
 						_yaw_ctrl.control_attitude(dt, control_input);
@@ -689,10 +685,6 @@ void FixedwingAttitudeControl::Run()
 
 					if (wheel_control) {
 						yaw_u = _wheel_ctrl.control_bodyrate(dt, control_input);
-
-					} else if (tandem_fixed_wing_mode) {
-						_yaw_ctrl.reset_integrator();
-						yaw_u = 0.0f;
 
 					} else {
 						yaw_u = _yaw_ctrl.control_euler_rate(dt, control_input);

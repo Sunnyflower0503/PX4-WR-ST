@@ -3821,7 +3821,9 @@ void Commander::estimator_check()
 		 * mode to prevent flyaway crashes.
 		 */
 
-		if (run_quality_checks && _status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+		if (run_quality_checks
+		    && _status.hil_state != vehicle_status_s::HIL_STATE_ON
+		    && _status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 
 			if (_status.arming_state == vehicle_status_s::ARMING_STATE_STANDBY) {
 				_nav_test_failed = false;
@@ -3862,9 +3864,30 @@ void Commander::estimator_check()
 		}
 	}
 
-	// run position and velocity accuracy checks
-	// Check if quality checking of position accuracy and consistency is to be performed
-	if (run_quality_checks) {
+	// HIL_STATE_QUATERNION is an authoritative truth-state source in this
+	// hardware-in-the-loop setup. It publishes a globally referenced local
+	// position directly, while EKF2 has no separate HIL_GPS stream. Do not let
+	// stale EKF innovation/accuracy state invalidate the fresh HIL truth after
+	// a VTOL transition. This exception is test-only and must remain guarded by
+	// HIL_STATE_ON; real flight keeps the normal sensor/EKF validity checks.
+	if (_status.hil_state == vehicle_status_s::HIL_STATE_ON) {
+		const bool hil_position_fresh = lpos.timestamp != 0
+				&& hrt_elapsed_time(&lpos.timestamp) < (_param_com_pos_fs_delay.get() * 1_s);
+		const bool hil_global_reference_valid = lpos.xy_global
+				&& lpos.ref_timestamp != 0
+				&& PX4_ISFINITE(lpos.ref_lat)
+				&& PX4_ISFINITE(lpos.ref_lon)
+				&& PX4_ISFINITE(lpos.ref_alt);
+
+		_status_flags.condition_global_position_valid = hil_position_fresh
+				&& hil_global_reference_valid && lpos.xy_valid;
+		_status_flags.condition_local_position_valid = hil_position_fresh && lpos.xy_valid;
+		_status_flags.condition_local_velocity_valid = hil_position_fresh && lpos.v_xy_valid;
+		_nav_test_failed = false;
+		_nav_test_passed = true;
+
+	} else if (run_quality_checks) {
+		// run position and velocity estimator accuracy checks
 		UpdateEstimateValidity();
 	}
 

@@ -280,9 +280,15 @@ FixedwingPositionControl::vehicle_attitude_poll()
 		Dcmf R{Quatf(att.q)};
 		_td_raw_yaw = Eulerf(R)(2);
 
+		// The MATLAB HIL plant publishes the fixed-wing body frame once the
+		// transition is complete. Do not apply the tailsitter offset twice.
+		const bool fixed_wing_hil_frame = _vehicle_status.hil_state == vehicle_status_s::HIL_STATE_ON
+				&& _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING
+				&& !_vehicle_status.in_transition_mode;
+
 		// if the vehicle is a tailsitter we have to rotate the attitude by the pitch offset
 		// between multirotor and fixed wing flight
-		if (_vtol_tailsitter) {
+		if (_vtol_tailsitter && !fixed_wing_hil_frame) {
 			const Dcmf R_offset{Eulerf{0.f, M_PI_2_F, 0.f}};
 			R = R * R_offset;
 
@@ -447,9 +453,9 @@ FixedwingPositionControl::status_publish()
 
 	pos_ctrl_status.nav_roll = _att_sp.roll_body;
 	pos_ctrl_status.nav_pitch = _att_sp.pitch_body;
-	pos_ctrl_status.nav_bearing = _l1_control.nav_bearing();
+	pos_ctrl_status.nav_bearing = _td_direct_turn_active ? _att_sp.yaw_body : _l1_control.nav_bearing();
 
-	pos_ctrl_status.target_bearing = _l1_control.target_bearing();
+	pos_ctrl_status.target_bearing = _td_direct_turn_active ? _att_sp.yaw_body : _l1_control.target_bearing();
 	pos_ctrl_status.xtrack_error = _l1_control.crosstrack_error();
 
 	pos_ctrl_status.wp_dist = get_distance_to_next_waypoint(_current_latitude, _current_longitude,
@@ -933,21 +939,13 @@ FixedwingPositionControl::control_position(const hrt_abstime &now, const Vector2
             if (_vehicle_status.is_vtol_tailsitter
                 && pos_sp_curr.type == position_setpoint_s::SETPOINT_TYPE_POSITION
                 && _param_td_fw_nav_dir.get() == 1) {
-                const float bearing_to_waypoint = get_bearing_to_next_waypoint(
+                const float guidance_bearing = get_bearing_to_next_waypoint(
                     curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
-                // In this HIL interface the local-position lateral velocity has
-                // the opposite sign from the global longitude/attitude convention.
-                // Use the measured aircraft heading so bearing and course share a
-                // consistent frame.
-                const float course_error = wrap_pi(bearing_to_waypoint - _td_raw_yaw);
+                const float course_error = wrap_pi(guidance_bearing - _td_raw_yaw);
                 const float roll_limit = radians(math::max(_param_fw_r_lim.get(), 1.0f));
 
-                // The tailsitter HIL plant uses the opposite lateral-axis convention
-                // from the stock L1 roll command. Pure pursuit in the PX4 navigation
-                // frame gives the correct turn direction and remains self-correcting
-                // for small cross-track errors.
                 _att_sp.roll_body = constrain(0.15f * course_error, -roll_limit, roll_limit);
-                _att_sp.yaw_body = bearing_to_waypoint;
+                _att_sp.yaw_body = guidance_bearing;
                 _td_direct_turn_active = true;
 
             } else {

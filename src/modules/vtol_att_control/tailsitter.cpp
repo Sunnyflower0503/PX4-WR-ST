@@ -114,6 +114,25 @@ void Tailsitter::update_vtol_state()
 
 		case vtol_mode::FW_MODE:
 		{
+			if (can_transition_on_ground()) {
+				_vtol_schedule.flight_mode = vtol_mode::MC_MODE;
+				_back_trans_gate_since = 0;
+				_back_trans_wait_reported = false;
+				_back_trans_requested_waiting = false;
+				PX4_INFO("Back transition gate: ground/disarmed MC selection");
+				break;
+			}
+
+			if (_params->tandem_backtrans_debug_fast) {
+				_vtol_schedule.flight_mode = vtol_mode::TRANSITION_BACK;
+				_vtol_schedule.transition_start = hrt_absolute_time();
+				_back_trans_gate_since = 0;
+				_back_trans_wait_reported = false;
+				_back_trans_requested_waiting = false;
+				PX4_WARN("Back transition gate: HITL debug fast FW->MC");
+				break;
+			}
+
 			_back_trans_requested_waiting = true;
 			const Eulerf attitude{Quatf(_v_att->q)};
 			const float airspeed = _airspeed_validated->calibrated_airspeed_m_s;
