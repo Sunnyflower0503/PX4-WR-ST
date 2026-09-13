@@ -114,3 +114,32 @@ PARAM_DEFINE_FLOAT(LNDMC_ALT_MAX, -1.0f);
  *
  */
 PARAM_DEFINE_FLOAT(LNDMC_ALT_GND, -1.0f);
+
+/**
+ * Enable tandem tailsitter contact-bit landing confirmation
+ *
+ * In HITL rotary-wing mode, use the TD_CNTCT six-point contact bitmask as the
+ * authoritative landed condition. This prevents the normal motion/thrust
+ * detector from declaring landed while only the rear support points touch.
+ * Outside HITL, or when the contact stream is stale, the normal detector is
+ * used unchanged.
+ *
+ * @group Land Detector
+ * @boolean
+ */
+PARAM_DEFINE_INT32(TD_LAND_CTL_EN, 0);
+
+/**
+ * Six-point landing confirmation time
+ *
+ * All six TD_CNTCT contact bits must remain set for this time before the
+ * tandem tailsitter can enter the landed state.
+ *
+ * @group Land Detector
+ * @unit s
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TD_LAND_CNT_T, 0.10f);

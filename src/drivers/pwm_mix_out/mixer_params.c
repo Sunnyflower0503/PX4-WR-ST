@@ -1261,11 +1261,27 @@ PARAM_DEFINE_INT32(TD_TIP_GND_EN, 1);
  * @group Mixer
  * @unit us
  * @min 1000
- * @max 1800
+ * @max 2000
  * @decimal 0
  * @increment 10
  */
 PARAM_DEFINE_FLOAT(TD_TIP_GND_PWM, 1500.0f);
+
+/**
+ * Rear-contact confirmation time
+ *
+ * All three rear contact bits in the HITL TD_CNTCT status must remain set for
+ * this time before the wingtip-propeller ground protection latches. The latch
+ * remains set until disarm.
+ *
+ * @group Mixer
+ * @unit s
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(TD_TIP_GND_T, 0.10f);
 
 /**
  * Tailsitter wingtip thrust pitch feedforward

@@ -211,9 +211,11 @@ private:
     actuator_controls_s _actuator_controls_1{};
     actuator_controls_s _actuator_controls_6{};
     airspeed_validated_s _airspeed_validated{};
-    debug_key_value_s _debug_key_value{};
-    hrt_abstime _rear_contact_timestamp{0};
-    bool _rear_contact_latched{false};
+	debug_key_value_s _debug_key_value{};
+	hrt_abstime _contact_status_timestamp{0};
+	hrt_abstime _rear_contact_since{0};
+	uint8_t _contact_mask{0};
+	bool _rear_contact_latched{false};
     manual_control_setpoint_s _manual_control_setpoint{};
     vehicle_control_mode_s _vehicle_control_mode{};
     vtol_vehicle_status_s _vtol_vehicle_status{};
@@ -341,6 +343,7 @@ private:
 		(ParamFloat<px4::params::TD_TIP_IDLE_PWM>) _td_tip_idle_pwm,
 		(ParamInt<px4::params::TD_TIP_GND_EN>) _td_tip_ground_enable,
 		(ParamFloat<px4::params::TD_TIP_GND_PWM>) _td_tip_ground_pwm,
+		(ParamFloat<px4::params::TD_TIP_GND_T>) _td_tip_ground_time,
 		(ParamFloat<px4::params::TD_TIP_P_FF>) _td_tip_pitch_ff,
 		(ParamFloat<px4::params::TD_TIP_XZ_FF>) _td_tip_xz_ff,
 		(ParamFloat<px4::params::TD_MAIN_XZ_FF>) _td_main_xz_ff,

@@ -60,6 +60,57 @@ VtolLandDetector::VtolLandDetector()
 void VtolLandDetector::_update_topics()
 {
 	MulticopterLandDetector::_update_topics();
+
+	debug_key_value_s contact_status{};
+
+	if (_debug_key_value_sub.update(&contact_status)) {
+		if (strncmp(contact_status.key, "TD_CNTCT", sizeof(contact_status.key)) == 0) {
+			_contact_mask = static_cast<uint8_t>(math::constrain(
+				static_cast<int>(contact_status.value + 0.5f), 0, 0x3f));
+			_contact_status_timestamp = contact_status.timestamp;
+
+		} else if (strncmp(contact_status.key, "TD_REAR", sizeof(contact_status.key)) == 0) {
+			// Legacy models can still drive rear protection, but cannot assert 6/6 landed.
+			_contact_mask = contact_status.value > 0.5f ? 0x38 : 0;
+			_contact_status_timestamp = contact_status.timestamp;
+		}
+	}
+
+	const bool all_contacts_raw = (_contact_mask & 0x3f) == 0x3f;
+
+	if (_use_tandem_contact_status() && all_contacts_raw) {
+		if (_all_contact_since == 0) {
+			_all_contact_since = hrt_absolute_time();
+		}
+
+	} else {
+		_all_contact_since = 0;
+	}
+
+	if (!_armed) {
+		_contact_status_timestamp = 0;
+		_all_contact_since = 0;
+		_contact_mask = 0;
+	}
+}
+
+bool VtolLandDetector::_use_tandem_contact_status() const
+{
+	return _param_td_land_control_enable.get() == 1
+	       && _armed
+	       && _vehicle_status.hil_state == vehicle_status_s::HIL_STATE_ON
+	       && _vehicle_status.is_vtol
+	       && _is_tailsitter
+	       && !_vehicle_status.in_transition_mode
+	       && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+	       && _contact_status_timestamp != 0
+	       && hrt_elapsed_time(&_contact_status_timestamp) < 500_ms;
+}
+
+bool VtolLandDetector::_all_contacts_confirmed() const
+{
+	return _all_contact_since != 0
+	       && hrt_elapsed_time(&_all_contact_since) >= _param_td_land_contact_time.get() * 1_s;
 }
 
 bool VtolLandDetector::_is_tandem_ground_supported()
@@ -95,7 +146,20 @@ bool VtolLandDetector::_get_maybe_landed_state()
 		return !_armed || _is_tandem_ground_supported();
 	}
 
+	if (_use_tandem_contact_status()) {
+		return _all_contacts_confirmed();
+	}
+
 	return MulticopterLandDetector::_get_maybe_landed_state();
+}
+
+bool VtolLandDetector::_get_ground_contact_state()
+{
+	if (_use_tandem_contact_status()) {
+		return _all_contacts_confirmed();
+	}
+
+	return MulticopterLandDetector::_get_ground_contact_state();
 }
 
 bool VtolLandDetector::_get_landed_state()
@@ -106,7 +170,8 @@ bool VtolLandDetector::_get_landed_state()
 	}
 
 	// this is returned from the mutlicopter land detector
-	bool landed = MulticopterLandDetector::_get_landed_state();
+	bool landed = _use_tandem_contact_status() ? _all_contacts_confirmed()
+		      : MulticopterLandDetector::_get_landed_state();
 
 	// for vtol we additionally consider airspeed
 	airspeed_validated_s airspeed_validated{};

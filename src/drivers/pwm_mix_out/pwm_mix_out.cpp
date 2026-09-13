@@ -706,12 +706,27 @@ void pwm_mix_out::mix_and_update_outputs()
             const int dbg_roll  = math::constrain(_td_mc_dbg_roll.get(),  -1, 1);
             const int dbg_spin  = math::constrain(_td_mc_dbg_spin.get(),  -1, 1);
 
-            const bool rear_contact_fresh = _rear_contact_timestamp != 0
-                                            && hrt_elapsed_time(&_rear_contact_timestamp) < 500_ms;
+		    constexpr uint8_t rear_contact_mask = 0x38; // model contact points 4, 5, 6
+		    const bool contact_status_fresh = _contact_status_timestamp != 0
+		                                      && hrt_elapsed_time(&_contact_status_timestamp) < 500_ms;
+		    const bool rear_contact_raw = contact_status_fresh
+		                                  && (_contact_mask & rear_contact_mask) == rear_contact_mask;
 
-            if (_td_tip_ground_enable.get() == 1 && rear_contact_fresh) {
-                _rear_contact_latched = true;
-            }
+		    if (rear_contact_raw) {
+		        if (_rear_contact_since == 0) {
+		            _rear_contact_since = hrt_absolute_time();
+		        }
+
+		    } else {
+		        _rear_contact_since = 0;
+		    }
+
+		    const bool rear_contact_confirmed = _rear_contact_since != 0
+		            && hrt_elapsed_time(&_rear_contact_since) >= _td_tip_ground_time.get() * 1_s;
+
+		    if (_td_tip_ground_enable.get() == 1 && rear_contact_confirmed) {
+		        _rear_contact_latched = true;
+		    }
 
             const float commanded_tip_idle = _rear_contact_latched
                                                ? math::max(_td_tip_idle_pwm.get(), _td_tip_ground_pwm.get())
@@ -722,10 +737,12 @@ void pwm_mix_out::mix_and_update_outputs()
             const float yaw_gain = 1000.0f * _yaw_scale.get();
             const float tip_spin = tip_yaw * static_cast<float>(dbg_spin);
             const float tip_yaw_signed = (_td_tip_yaw_rev.get() == 1) ? -tip_spin : tip_spin;
-            const float tip_left_pwm = math::constrain(tip_idle - yaw_gain * tip_yaw_signed,
-                _pwm_main7_min.get(), _pwm_main7_max.get());
-            const float tip_right_pwm = math::constrain(tip_idle + yaw_gain * tip_yaw_signed,
-                _pwm_main8_min.get(), _pwm_main8_max.get());
+		    const float tip_left_pwm = _rear_contact_latched ? tip_idle
+		            : math::constrain(tip_idle - yaw_gain * tip_yaw_signed,
+		                              _pwm_main7_min.get(), _pwm_main7_max.get());
+		    const float tip_right_pwm = _rear_contact_latched ? tip_idle
+		            : math::constrain(tip_idle + yaw_gain * tip_yaw_signed,
+		                              _pwm_main8_min.get(), _pwm_main8_max.get());
 
             // Propeller thrust is approximately proportional to speed squared.
             // Subtracting the idle baseline keeps the compensation at zero when
@@ -1026,20 +1043,28 @@ void pwm_mix_out::Run()
     _actuator_controls_1_sub.update(&_actuator_controls_1);
     _actuator_controls_6_sub.update(&_actuator_controls_6);
     _airspeed_validated_sub.update(&_airspeed_validated);
-    if (_debug_key_value_sub.update(&_debug_key_value)
-        && strncmp(_debug_key_value.key, "TD_REAR", sizeof(_debug_key_value.key)) == 0) {
-        if (_debug_key_value.value > 0.5f) {
-            _rear_contact_timestamp = _debug_key_value.timestamp;
-        }
-    }
+	if (_debug_key_value_sub.update(&_debug_key_value)) {
+		if (strncmp(_debug_key_value.key, "TD_CNTCT", sizeof(_debug_key_value.key)) == 0) {
+			_contact_mask = static_cast<uint8_t>(math::constrain(
+				static_cast<int>(_debug_key_value.value + 0.5f), 0, 0x3f));
+			_contact_status_timestamp = _debug_key_value.timestamp;
+
+		} else if (strncmp(_debug_key_value.key, "TD_REAR", sizeof(_debug_key_value.key)) == 0) {
+			// Backward compatibility with pre-bitmask HITL models.
+			_contact_mask = _debug_key_value.value > 0.5f ? 0x38 : 0;
+			_contact_status_timestamp = _debug_key_value.timestamp;
+		}
+	}
     _manual_control_setpoint_sub.update(&_manual_control_setpoint);
     _vehicle_control_mode_sub.update(&_vehicle_control_mode);
     _vtol_vehicle_status_sub.update(&_vtol_vehicle_status);
 
-    if (!_armed_state) {
-        _rear_contact_latched = false;
-        _rear_contact_timestamp = 0;
-    }
+	if (!_armed_state) {
+		_rear_contact_latched = false;
+		_rear_contact_since = 0;
+		_contact_status_timestamp = 0;
+		_contact_mask = 0;
+	}
     // Check throttle kill from uORB topic and parameter
     _throttle_kill_sub.update(&_throttle_kill);
     bool kill_requested = _throttle_kill.kill || (_thr_kill.get() == 1);

@@ -25,6 +25,12 @@ param set-default COM_VEHICLE_ID 10
 param set-default TD_GND_I_LOCK 1
 param set-default TD_GND_THR_REL 0.55
 param set-default TD_TIP_IDLE_PWM 1400
+param set-default TD_TIP_GND_EN 1
+param set-default TD_TIP_GND_PWM 1900
+param set-default TD_TIP_GND_T 0.10
+param set-default TD_LAND_CTL_EN 1
+param set-default TD_LAND_CNT_T 0.10
+param set-default COM_DISARM_LAND 0.5
 param set-default TD_TIP_P_FF 0.0
 param set-default TD_MC_HOV_P 87.0
 param set-default TD_MC_YAW_MAIN 0.30
