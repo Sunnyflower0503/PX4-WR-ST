@@ -65,6 +65,7 @@ Tailsitter::Tailsitter(VtolAttitudeControl *attc) :
 	_params_handles_tailsitter.back_trans_pitch_max = param_find("TD_BTR_PITCH");
 	_params_handles_tailsitter.back_trans_gate_time = param_find("TD_BTR_GATE_T");
 	_params_handles_tailsitter.back_trans_throttle_max = param_find("TD_BTR_THR");
+	_params_handles_tailsitter.sys_hitl = param_find("SYS_HITL");
 }
 
 void
@@ -85,6 +86,7 @@ Tailsitter::parameters_update()
 	_params_tailsitter.back_trans_pitch_max = math::radians(v);
 	param_get(_params_handles_tailsitter.back_trans_gate_time, &_params_tailsitter.back_trans_gate_time);
 	param_get(_params_handles_tailsitter.back_trans_throttle_max, &_params_tailsitter.back_trans_throttle_max);
+	param_get(_params_handles_tailsitter.sys_hitl, &_params_tailsitter.sys_hitl);
 }
 
 void Tailsitter::update_vtol_state()
@@ -136,9 +138,12 @@ void Tailsitter::update_vtol_state()
 			_back_trans_requested_waiting = true;
 			const Eulerf attitude{Quatf(_v_att->q)};
 			const float airspeed = _airspeed_validated->calibrated_airspeed_m_s;
-			const bool airspeed_ok = PX4_ISFINITE(airspeed)
+			const float ground_speed = sqrtf(_local_pos->vx * _local_pos->vx + _local_pos->vy * _local_pos->vy);
+			const bool use_hitl_ground_speed = !PX4_ISFINITE(airspeed) && _params_tailsitter.sys_hitl == 1;
+			const float transition_speed = use_hitl_ground_speed ? ground_speed : airspeed;
+			const bool airspeed_ok = PX4_ISFINITE(transition_speed)
 				&& (_params_tailsitter.back_trans_airspeed_max <= FLT_EPSILON
-				    || airspeed <= _params_tailsitter.back_trans_airspeed_max);
+				    || transition_speed <= _params_tailsitter.back_trans_airspeed_max);
 			const bool attitude_ok = fabsf(attitude.phi()) <= _params_tailsitter.back_trans_roll_max
 				&& fabsf(attitude.theta()) <= _params_tailsitter.back_trans_pitch_max;
 
@@ -157,15 +162,17 @@ void Tailsitter::update_vtol_state()
 					_back_trans_gate_since = 0;
 					_back_trans_wait_reported = false;
 					_back_trans_requested_waiting = false;
-					PX4_INFO("Back transition gate: enabled at %.1f m/s", (double)airspeed);
+					PX4_INFO("Back transition gate: enabled at %.1f m/s (%s)",
+						 (double)transition_speed, use_hitl_ground_speed ? "HITL ground" : "air");
 				}
 
 			} else {
 				_back_trans_gate_since = 0;
 
 				if (!_back_trans_wait_reported) {
-					PX4_INFO("Back transition gate: waiting (V %.1f, roll %.1f, pitch %.1f)",
-						 (double)airspeed, (double)math::degrees(attitude.phi()),
+					PX4_INFO("Back transition gate: waiting (V %.1f %s, roll %.1f, pitch %.1f)",
+						 (double)transition_speed, use_hitl_ground_speed ? "HITL-ground" : "air",
+						 (double)math::degrees(attitude.phi()),
 						 (double)math::degrees(attitude.theta()));
 					_back_trans_wait_reported = true;
 				}

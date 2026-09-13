@@ -344,6 +344,7 @@ private:
 		(ParamInt<px4::params::TD_TIP_GND_EN>) _td_tip_ground_enable,
 		(ParamFloat<px4::params::TD_TIP_GND_PWM>) _td_tip_ground_pwm,
 		(ParamFloat<px4::params::TD_TIP_GND_T>) _td_tip_ground_time,
+		(ParamFloat<px4::params::TD_LAND_M_PWM>) _td_land_main_pwm,
 		(ParamFloat<px4::params::TD_TIP_P_FF>) _td_tip_pitch_ff,
 		(ParamFloat<px4::params::TD_TIP_XZ_FF>) _td_tip_xz_ff,
 		(ParamFloat<px4::params::TD_MAIN_XZ_FF>) _td_main_xz_ff,

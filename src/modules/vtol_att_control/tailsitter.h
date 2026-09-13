@@ -71,6 +71,7 @@ private:
 		float back_trans_pitch_max;
 		float back_trans_gate_time;
 		float back_trans_throttle_max;
+		int32_t sys_hitl;
 	} _params_tailsitter{};
 
 	struct {
@@ -81,6 +82,7 @@ private:
 		param_t back_trans_pitch_max;
 		param_t back_trans_gate_time;
 		param_t back_trans_throttle_max;
+		param_t sys_hitl;
 	} _params_handles_tailsitter{};
 
 	hrt_abstime _back_trans_gate_since{0};

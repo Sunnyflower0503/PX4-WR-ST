@@ -1284,6 +1284,23 @@ PARAM_DEFINE_FLOAT(TD_TIP_GND_PWM, 1500.0f);
 PARAM_DEFINE_FLOAT(TD_TIP_GND_T, 0.10f);
 
 /**
+ * Rear-contact main-propeller PWM
+ *
+ * Commands MAIN1..MAIN4 to the same PWM after the rear-contact protection
+ * latch. This removes the normal attitude-controller differential while the
+ * aircraft rotates onto its front supports. It is used together with
+ * TD_TIP_GND_PWM and remains active until disarm.
+ *
+ * @group Mixer
+ * @unit us
+ * @min 1000
+ * @max 2000
+ * @decimal 0
+ * @increment 10
+ */
+PARAM_DEFINE_FLOAT(TD_LAND_M_PWM, 1400.0f);
+
+/**
  * Tailsitter wingtip thrust pitch feedforward
  *
  * Adds pitch differential to the main propellers according to the wingtip

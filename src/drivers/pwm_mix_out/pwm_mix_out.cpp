@@ -779,6 +779,22 @@ void pwm_mix_out::mix_and_update_outputs()
             _actuator_outputs.output[3] = math::constrain(1000.f + motor4 * 1000.f,
                 _pwm_main4_min.get(), _pwm_main4_max.get());
 
+			// Rear contact is a separate landing-control phase.  Keep the
+			// wingtip propellers at TD_TIP_GND_PWM and remove the normal
+			// attitude-loop differential from the four main propellers so it
+			// cannot accelerate the aircraft across the ground while it settles.
+			if (_rear_contact_latched) {
+				const float landing_main_pwm = math::constrain(_td_land_main_pwm.get(), 1000.0f, 2000.0f);
+				_actuator_outputs.output[0] = math::constrain(landing_main_pwm,
+					_pwm_main1_min.get(), _pwm_main1_max.get());
+				_actuator_outputs.output[1] = math::constrain(landing_main_pwm,
+					_pwm_main2_min.get(), _pwm_main2_max.get());
+				_actuator_outputs.output[2] = math::constrain(landing_main_pwm,
+					_pwm_main3_min.get(), _pwm_main3_max.get());
+				_actuator_outputs.output[3] = math::constrain(landing_main_pwm,
+					_pwm_main4_min.get(), _pwm_main4_max.get());
+			}
+
             _actuator_outputs.output[4] = _pwm_main5_trim.get();
             _actuator_outputs.output[5] = _pwm_main6_trim.get();
 
