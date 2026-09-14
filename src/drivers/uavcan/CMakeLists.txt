@@ -34,7 +34,13 @@
 set(LIBUAVCAN_DIR ${PX4_SOURCE_DIR}/src/drivers/uavcan/libuavcan)
 set(LIBUAVCAN_DIR_DRIVERS ${PX4_SOURCE_DIR}/src/drivers/uavcan/uavcan_drivers)
 
-px4_add_git_submodule(TARGET git_uavcan PATH ${LIBUAVCAN_DIR})
+if(EXISTS "${LIBUAVCAN_DIR}/.git")
+	px4_add_git_submodule(TARGET git_uavcan PATH ${LIBUAVCAN_DIR})
+else()
+	# libuavcan is vendored in this repository, so there is no submodule
+	# metadata to initialize or track as a build dependency.
+	add_custom_target(git_uavcan)
+endif()
 
 set(UAVCAN_USE_CPP03 ON CACHE BOOL "uavcan cpp03")
 set(UAVCAN_PLATFORM "generic")

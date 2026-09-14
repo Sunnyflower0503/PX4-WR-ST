@@ -2,10 +2,6 @@
 	path = mavlink/include/mavlink/v2.0
 	url = https://github.com/mavlink/c_library_v2.git
 	branch = master
-[submodule "src/drivers/uavcan/libuavcan"]
-	path = src/drivers/uavcan/libuavcan
-	url = https://github.com/PX4/libuavcan.git
-	branch = px4
 [submodule "Tools/jMAVSim"]
 	path = Tools/jMAVSim
 	url = https://github.com/PX4/jMAVSim.git
